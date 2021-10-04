@@ -32,6 +32,7 @@ class QImageViewer(QMainWindow):
         self.imagemTela.setScaledContents(True)
 
         self.areaRolagem = QScrollArea()
+        self.areaRolagem.setAlignment(Qt.AlignCenter)
         self.areaRolagem.setBackgroundRole(QPalette.Dark)
         self.areaRolagem.setWidget(self.imagemTela)
         self.areaRolagem.setVisible(False)
