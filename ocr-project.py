@@ -135,7 +135,6 @@ class QImageViewer(QMainWindow):
         self.acaoAjustarATela = QAction("&Ajustar a tela", self, enabled=False, checkable=True, shortcut="Ctrl+F",
                                         triggered=self.acaoAjustarATela)
         self.sobrePyQT5 = QAction("Py&Qt5", self, triggered=qApp.aboutQt)
-        self.inverterImagem = QAction("Inverter &Imagem", self, triggered=self.inverterImagem)
 
     def criarMenus(self):
         # Menu Arquivo
@@ -157,7 +156,6 @@ class QImageViewer(QMainWindow):
         # Menu Processamento
 
         self.menuProcessamento = QMenu("&Processamento", self)
-        self.menuProcessamento.addAction(self.inverterImagem)
 
         # Help menu
         self.helpMenu = QMenu("&Sobre", self)
