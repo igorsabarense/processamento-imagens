@@ -127,13 +127,15 @@ class QImageViewer(QMainWindow):
     def criarAcoes(self):
         self.acaoAbrirArquivo = QAction("&Abrir...", self, shortcut="Ctrl+O", triggered=self.acaoAbrirArquivo)
         self.acaoImprimir = QAction("&Imprimir...", self, shortcut="Ctrl+P", enabled=False, triggered=self.acaoImprimir)
-        self.acaoSair = QAction("&Sair", self,  shortcut="Ctrl+Q", triggered=self.close)
-        self.zoomInAct = QAction("Zoom &In (25%)", self,  shortcut="Ctrl++", enabled=False, triggered=self.zoomIn)
-        self.zoomOutAct = QAction("Zoom &Out (25%)", self,  shortcut="Ctrl+-", enabled=False, triggered=self.zoomOut)
-        self.normalSizeAct = QAction("&Tamanho original", self,  shortcut="Ctrl+S", enabled=False, triggered=self.normalSize)
-        self.acaoAjustarATela = QAction("&Ajustar a tela", self, enabled=False, checkable=True, shortcut="Ctrl+F", triggered=self.acaoAjustarATela)
+        self.acaoSair = QAction("&Sair", self, shortcut="Ctrl+Q", triggered=self.close)
+        self.zoomInAct = QAction("Zoom &In (25%)", self, shortcut="Ctrl++", enabled=False, triggered=self.zoomIn)
+        self.zoomOutAct = QAction("Zoom &Out (25%)", self, shortcut="Ctrl+-", enabled=False, triggered=self.zoomOut)
+        self.normalSizeAct = QAction("&Tamanho original", self, shortcut="Ctrl+S", enabled=False,
+                                     triggered=self.normalSize)
+        self.acaoAjustarATela = QAction("&Ajustar a tela", self, enabled=False, checkable=True, shortcut="Ctrl+F",
+                                        triggered=self.acaoAjustarATela)
         self.sobrePyQT5 = QAction("Py&Qt5", self, triggered=qApp.aboutQt)
-        self.inverterImagem = QAction("Invert &Imagem", self, triggered=self.inverterImagem)
+        self.inverterImagem = QAction("Inverter &Imagem", self, triggered=self.inverterImagem)
 
     def criarMenus(self):
         # Menu Arquivo
@@ -161,8 +163,7 @@ class QImageViewer(QMainWindow):
         self.helpMenu = QMenu("&Sobre", self)
         self.helpMenu.addAction(self.sobrePyQT5)
 
-
-        #Menu Bar
+        # Menu Bar
         self.menuBar().addMenu(self.menuArquivo)
         self.menuBar().addMenu(self.menuVisualizar)
         self.menuBar().addMenu(self.menuProcessamento)
@@ -187,16 +188,8 @@ class QImageViewer(QMainWindow):
         barraRolagem.setValue(int(escala * barraRolagem.value()
                                   + ((escala - 1) * barraRolagem.pageStep() / 2)))
 
-    def renderizarImagem(self):
-        self.imagemTela.setPixmap(QPixmap.fromImage(self.imagem))
 
-    def inverterImagem(self):
-        self.cv_imagem = cv2.bitwise_not(self.cv_imagem)
-        self.retornaQImage()
-        self.renderizarImagem()
 
-    def limiarizacao(self):
-        thresh, im_bw = cv2.threshold(self.transformaImagemEmOpenCV(), 210, 230, cv2.THRESH_BINARY)
 
 
 if __name__ == '__main__':
