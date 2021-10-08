@@ -221,9 +221,9 @@ class QImageViewer(QMainWindow):
            (x, y, w, h) = cv2.boundingRect(c)
 
            # if the contour is sufficiently large, it must be a digit
-           print('w,h ='), w, h
-           cv2.rectangle(self.cv_imagem, (x, y), (x + w, y + h), (0, 255, 0), 1)
-           if w >= 15 and (h >= 30 and h <= 70):
+           print('w,h =', w, h)
+           cv2.rectangle(self.cv_imagem, (x, y), (x + w, y + h), (100, 255, 50), 1)
+           if w >= 15 and (30 <= h <= 40):
                digitCnts.append(c)
 
        # sort the contours from left-to-right, then initialize the
@@ -233,7 +233,7 @@ class QImageViewer(QMainWindow):
        digits = []
 
        # loop over each of the digits
-       print('digitCnts'), digitCnts
+       print('digitCnts', digitCnts)
        for c in digitCnts:
            # extract the digit ROI
            (x, y, w, h) = cv2.boundingRect(c)
@@ -270,7 +270,7 @@ class QImageViewer(QMainWindow):
 
                # if the total number of non-zero pixels is greater than
                # 50% of the area, mark the segment as "on"
-               if total / float(area) > 0.5:
+               if area > 0 and total / float(area) > 0.5:
                    on[i] = 1
 
            # lookup the digit and draw it on the image
