@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import imutils
-from PIL import Image
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QTransform
-from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
-    qApp, QFileDialog
-
+import math
 
 import cv2
 import numpy as np
-
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter
+from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
+    qApp, QFileDialog
 
 
 """ __author__ = "Bruno Rodrigues, Igor Sabarense and Raphael Nogueira"
@@ -19,18 +16,6 @@ import numpy as np
     __date__ = "2021"
 """
 
-DIGITS_LOOKUP = {
-    (1, 1, 1, 0, 1, 1, 1): 0,
-    (0, 0, 1, 0, 0, 1, 0): 1,
-    (1, 0, 1, 1, 1, 1, 0): 2,
-    (1, 0, 1, 1, 0, 1, 1): 3,
-    (0, 1, 1, 1, 0, 1, 0): 4,
-    (1, 1, 0, 1, 0, 1, 1): 5,
-    (1, 1, 0, 1, 1, 1, 1): 6,
-    (1, 0, 1, 0, 0, 1, 0): 7,
-    (1, 1, 1, 1, 1, 1, 1): 8,
-    (1, 1, 1, 1, 0, 1, 1): 9
-}
 
 class QImageViewer(QMainWindow):
     def __init__(self):
@@ -62,17 +47,16 @@ class QImageViewer(QMainWindow):
         self.resize(800, 600)
 
     def acaoAbrirArquivo(self):
-        opcoes = QFileDialog.Options()
+        options = QFileDialog.Options()
 
         nomeArquivo, _ = QFileDialog.getOpenFileName(self, 'QFileDialog.getOpenFileName()', '',
-                                                     'Images (*.png *.jpeg *.jpg *.bmp *.gif)', options=opcoes)
+                                                     'Images (*.png *.jpeg *.jpg *.bmp *.gif)', options=options)
 
         if nomeArquivo:
-            # Cria openCV e inverte a imagem
             self.cv_imagem = cv2.imread(nomeArquivo)
 
             image = self.retornaQImage()
-            self.contornoImagem()
+            self.processarImagem()
 
             if image.isNull():
                 QMessageBox.information(self, "Visualizador", "Não foi possível carregar %s." % nomeArquivo)
@@ -204,8 +188,7 @@ class QImageViewer(QMainWindow):
                                   + ((escala - 1) * barraRolagem.pageStep() / 2)))
 
 
-
-    def contornoImagem(self):
+    def processarImagem(self):
        image = self.cv_imagem.copy()
        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
        blur = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -228,15 +211,17 @@ class QImageViewer(QMainWindow):
 
            # Taking ROI of the cotour
            roi = thresh.copy()[y:y + h, x:x + w]
-
            roi = cv2.resize(roi, (28,28))
            # Save your contours or characters
            cv2.imwrite("roi" + str(i) + ".png", roi)
-           i = i + 1
+
            # if the contour is sufficiently large, it must be a digit
            print('w,h =', w, h)
            if w < (7 * h):
                cv2.rectangle(self.cv_imagem, (x, y), (x + w, y + h), (100, 255, 50), 1)
+
+           i = i+1
+
 
 
 if __name__ == '__main__':
