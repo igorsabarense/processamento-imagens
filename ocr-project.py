@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import math
 
+import tensorflow as tf
+from tensorflow.keras.preprocessing import image # import image preprocessing
 import cv2
 import numpy as np
 from PyQt5.QtCore import Qt
@@ -11,8 +12,7 @@ from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMain
     qApp, QFileDialog
 
 
-""" __author__ = "Bruno Rodrigues, Igor Sabarense and Raphael Nogueira"
-    __credits__ = ["PyQT5", "acbetter/QImageViewer.py"
+""" __author__ = "Bruno Rodrigues, Igor Sabarense e Raphael Nogueira"
     __date__ = "2021"
 """
 
@@ -20,7 +20,6 @@ from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMain
 class QImageViewer(QMainWindow):
     def __init__(self):
         super().__init__()
-
         self.cv_imagem = None  # csv tem que ser atualizado
         self.imagem = QImage()  # imagem tem que ser atualizada junto a csv
         self.impressora = QPrinter()
@@ -187,6 +186,15 @@ class QImageViewer(QMainWindow):
         barraRolagem.setValue(int(escala * barraRolagem.value()
                                   + ((escala - 1) * barraRolagem.pageStep() / 2)))
 
+    # a preprocess function
+    def infer_prec(self,img, img_size):
+        img = tf.expand_dims(img, -1)  # from 28 x 28 to 28 x 28 x 1
+        img = tf.divide(img, 255)  # normalize
+        img = tf.image.resize(img,  # resize acc to the input
+                              [img_size, img_size])
+        img = tf.reshape(img,  # reshape to add batch dimension
+                         [1, img_size, img_size, 1])
+        return img
 
     def processarImagem(self):
        image = self.cv_imagem.copy()
@@ -194,7 +202,7 @@ class QImageViewer(QMainWindow):
        blur = cv2.GaussianBlur(gray, (5, 5), 0)
        thresh = cv2.threshold(blur, 0, 255,
                               cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
-       kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 5))
+
 
        # find contours in the thresholded image, then initialize the
        # digit contours lists
@@ -202,7 +210,7 @@ class QImageViewer(QMainWindow):
        cnts = cnts[0]
        i = 0
 
-       digitCnts = []
+       digits = []
 
        # loop over the digit area candidates
        for c in cnts:
@@ -211,23 +219,52 @@ class QImageViewer(QMainWindow):
 
            # Taking ROI of the cotour
            roi = thresh.copy()[y:y + h, x:x + w]
-           roi = cv2.resize(roi, (28,28))
-           # Save your contours or characters
-           cv2.imwrite("roi" + str(i) + ".png", roi)
 
-           # if the contour is sufficiently large, it must be a digit
-           print('w,h =', w, h)
+
+           tf_img = self.infer_prec(roi, 28)  # call preprocess function
+
+
+           prediction = TensorFlowModel.model.predict(tf_img)
+           digits.append(np.argmax(prediction))
+
+           #print(prediction)
+           #append.predict
+
            if w < (7 * h):
                cv2.rectangle(self.cv_imagem, (x, y), (x + w, y + h), (100, 255, 50), 1)
 
            i = i+1
+           cv2.imshow('roi' , roi)
+       print(digits)
+
+class TensorFlowModel():
+    def __init__(self):
+        super().__init__()
+    mnist = tf.keras.datasets.mnist
+    (x_treino , y_treino) , (x_teste, y_teste) = mnist.load_data()
+
+    x_treino = tf.keras.utils.normalize(x_treino, axis= 1)
+    x_teste = tf.keras.utils.normalize(x_teste, axis= 1)
+
+    model = tf.keras.models.Sequential()
+    model.add(tf.keras.layers.Flatten())
+    model.add(tf.keras.layers.Dense(units=128, activation= tf.nn.relu))
+    model.add(tf.keras.layers.Dense(units=128, activation=tf.nn.relu))
+    model.add(tf.keras.layers.Dense(units=10, activation=tf.nn.softmax))
+    model.compile(optimizer="adam", loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+    model.fit(x_treino, y_treino, epochs = 3)
+    perda, acuracia  = model.evaluate(x_teste, y_teste)
+    print('accuracy ' , acuracia)
+    print('loss', perda)
+    model.summary()
+    model.save('ocr.model')
+
 
 
 
 if __name__ == '__main__':
     import sys
     from PyQt5.QtWidgets import QApplication
-
     app = QApplication(sys.argv)
     ocr_app = QImageViewer()
     ocr_app.show()
