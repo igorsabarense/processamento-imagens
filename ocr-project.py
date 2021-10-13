@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import tensorflow as tf
-from tensorflow.keras.preprocessing import image # import image preprocessing
+from matplotlib import pyplot as plt
 import cv2
 import numpy as np
 from PyQt5.QtCore import Qt
@@ -186,6 +186,15 @@ class QImageViewer(QMainWindow):
         barraRolagem.setValue(int(escala * barraRolagem.value()
                                   + ((escala - 1) * barraRolagem.pageStep() / 2)))
 
+    def sort_contours(self, cnts):
+        # initialize the reverse flag and sort index
+        i = 0
+        boundingBoxes = [cv2.boundingRect(c) for c in cnts]
+        (cnts, boundingBoxes) = zip(*sorted(zip(cnts, boundingBoxes),
+                                            key=lambda b: b[1][i]))
+
+        return cnts
+
     # a preprocess function
     def infer_prec(self,img, img_size):
         img = tf.expand_dims(img, -1)  # from 28 x 28 to 28 x 28 x 1
@@ -207,7 +216,7 @@ class QImageViewer(QMainWindow):
        # find contours in the thresholded image, then initialize the
        # digit contours lists
        cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-       cnts = cnts[0]
+       cnts = self.sort_contours(cnts[0])
        i = 0
 
        digits = []
@@ -220,6 +229,10 @@ class QImageViewer(QMainWindow):
            # Taking ROI of the cotour
            roi = thresh.copy()[y:y + h, x:x + w]
 
+           roi = np.pad(roi, ((5, 5), (5, 5)), "constant", constant_values=0)
+
+           plt.subplot(330 + 1 + i)
+           plt.imshow(roi, cmap='gray')
 
            tf_img = self.infer_prec(roi, 28)  # call preprocess function
 
@@ -231,10 +244,11 @@ class QImageViewer(QMainWindow):
            #append.predict
 
            if w < (7 * h):
-               cv2.rectangle(self.cv_imagem, (x, y), (x + w, y + h), (100, 255, 50), 1)
+               cv2.rectangle(self.cv_imagem, (x, y), (x + w, y + h), (100, 255, 50), 2)
 
            i = i+1
-           cv2.imshow('roi' , roi)
+
+       plt.show()
        print(digits)
 
 class TensorFlowModel():
