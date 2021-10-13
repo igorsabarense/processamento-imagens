@@ -215,8 +215,9 @@ class QImageViewer(QMainWindow):
 
        # find contours in the thresholded image, then initialize the
        # digit contours lists
-       cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-       cnts = self.sort_contours(cnts[0])
+       cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+       cnts = self.sort_contours(cnts)
+
        i = 0
 
        digits = []
