@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import tensorflow as tf
+# import relevant library
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from matplotlib import pyplot as plt
 import cv2
 import numpy as np
@@ -10,7 +12,6 @@ from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
     qApp, QFileDialog
-
 
 """ __author__ = "Bruno Rodrigues, Igor Sabarense e Raphael Nogueira"
     __date__ = "2021"
@@ -74,7 +75,7 @@ class QImageViewer(QMainWindow):
 
     def retornaQImage(self):
         if self.cv_imagem is not None:
-            # Converter formato de BGR pra RGB ( QIMAGE ) 
+            # Converter formato de BGR pra RGB ( QIMAGE )
             self.cv_imagem = cv2.cvtColor(self.cv_imagem, cv2.COLOR_BGR2RGB)
             self.imagem = self.criarDadosQImage()
         return self.imagem
@@ -196,8 +197,7 @@ class QImageViewer(QMainWindow):
         return cnts
 
     def get_horizontal_projection(self, img):
-        thresh = cv2.threshold(img.copy(), 130, 255,
-                                cv2.THRESH_BINARY)[1]  # Change points between image binarization (130255) to 255 (background)
+        thresh = cv2.threshold(img.copy(), 130, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
         (h, w) = thresh.shape  # Return height and width
         a = [0 for z in range(0, w)]
 
@@ -214,8 +214,8 @@ class QImageViewer(QMainWindow):
         return thresh
 
     def get_vertical_projection(self, img):
-        thresh = cv2.threshold(img.copy(), 130, 255,
-                                cv2.THRESH_BINARY)[1]  # Change points between image binarization (130255) to 255 (background)
+        thresh = cv2.threshold(img.copy(), 130, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+
         (h, w) = thresh.shape  # Return height and width
         a = [0 for z in range(0, w)]
         # Record the peaks of each column
@@ -233,7 +233,7 @@ class QImageViewer(QMainWindow):
         return thresh
 
     # a preprocess function
-    def infer_prec(self,img, img_size):
+    def infer_prec(self, img, img_size):
         img = tf.expand_dims(img, -1)  # from 28 x 28 to 28 x 28 x 1
         img = tf.divide(img, 255)  # normalize
         img = tf.image.resize(img,  # resize acc to the input
@@ -247,154 +247,145 @@ class QImageViewer(QMainWindow):
 
         background = np.array([255, 255, 255])
         percent = (imgArr == background).sum() / imgArr.size
-
+        print(percent)
         if percent >= threshold or percent == 0 or percent <= 0.001:
             return True
-        else :
+        else:
             return False
 
     def processarImagem(self):
-       image = self.cv_imagem.copy()
-       white_background = cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU if self.find_white_background(image) else cv2.THRESH_BINARY + cv2.THRESH_OTSU
-       gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-       blur = cv2.GaussianBlur(gray, (5, 5), 0)
-       thresh = cv2.threshold(blur, 0, 255, white_background)[1]
+        image = self.cv_imagem.copy()
+        white_background = cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU if self.find_white_background(
+            image) else cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        thresh = cv2.threshold(blur, 0, 255, white_background)[1]
 
+        # find contours in the thresholded image, then initialize the
+        # digit contours lists
+        cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
+        cnts = self.sort_contours(cnts)
 
-       # find contours in the thresholded image, then initialize the
-       # digit contours lists
-       cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
-       cnts = self.sort_contours(cnts)
+        i = 0
 
-       i = 0
+        digits = []
 
-       digits = []
+        # loop over the digit area candidates
+        for c in cnts:
+            # compute the bounding box of the contour
+            (x, y, w, h) = cv2.boundingRect(c)
+            if w >= 5 and h >= 5:
+                # Taking ROI of the cotour
+                roi = thresh.copy()[y:y + h, x:x + w]
+                roi = np.pad(roi, ((5, 5), (5, 5)), "constant", constant_values=0)
+                roi = cv2.resize(roi, (28, 28))
 
-       # loop over the digit area candidates
-       for c in cnts:
-           # compute the bounding box of the contour
-           (x, y, w, h) = cv2.boundingRect(c)
-           if w >= 5:
-               # Taking ROI of the cotour
-               roi = thresh.copy()[y:y + h, x:x + w]
+                v_proj = self.get_vertical_projection(cv2.resize(roi, (28, 28)))
+                h_proj = self.get_horizontal_projection(cv2.resize(roi, (28, 28)))
+                vh_proj = v_proj + h_proj
 
-               roi = np.pad(roi, ((5, 5), (5, 5)), "constant", constant_values=0)
+                if i is 0:
+                    plt.subplot(330 + 1 + i)
+                    plt.imshow(roi, cmap='gray')
+                    plt.subplot(330 + 1 + 2)
+                    plt.imshow(v_proj, cmap='gray')
+                    plt.subplot(330 + 1 + 3)
+                    plt.imshow(h_proj, cmap='gray')
+                    plt.subplot(330 + 1 + 5)
+                    plt.imshow(vh_proj, cmap='gray')
 
-               grayPadded = np.pad(gray[y:y + h, x:x + w], ((5, 5), (5, 5)), "constant", constant_values=0)
+                tf_img = self.infer_prec(roi, 28)  # call preprocess function
 
-               v_proj  = self.get_vertical_projection(cv2.resize(grayPadded, (28,28)));
-               h_proj = self.get_horizontal_projection(cv2.resize(grayPadded, (28, 28)));
-               vh_proj = v_proj + h_proj
+                prediction = TensorFlowModel.model.predict(tf_img)
+                digits.append(np.argmax(prediction))
 
-               if i is 0:
-                plt.subplot(330 + 1 + i)
-                plt.imshow(roi, cmap='gray')
-                plt.subplot(330 + 1 + 1)
-                plt.imshow(v_proj, cmap='gray')
-                plt.subplot(330 + 1 + 2)
-                plt.imshow(h_proj, cmap='gray')
-                plt.subplot(330 + 1 + 5)
-                plt.imshow(vh_proj, cmap='gray')
+                # print(prediction)
+                # append.predict
 
+                if w < (7 * h):
+                    cv2.rectangle(self.cv_imagem, (x, y), (x + w, y + h), (0, 255, 0), 1)
 
-               tf_img = self.infer_prec(vh_proj, 28)  # call preprocess function
+                i = i + 1
 
+        plt.show()
+        print(digits)
 
-               prediction = TensorFlowModel.model.predict(tf_img)
-               digits.append(np.argmax(prediction))
-
-               #print(prediction)
-               #append.predict
-
-               if w < (7 * h):
-                   cv2.rectangle(self.cv_imagem, (x, y), (x + w, y + h), (0, 255, 0), 1)
-
-               i = i+1
-
-       plt.show()
-       print(digits)
 
 class TensorFlowModel():
     def __init__(self):
         super().__init__()
 
-    def project_dataset(dataset):
-        new_data = []
-        for img in dataset:
+    def project_dataset(img):
+        image_1 = img.copy()
+        (h, w, _) = image_1.shape  # Return height and width
+        a = [0 for z in range(0, w)]
 
-            def get_horizontal_projection(img):
-                (h, w) = img.shape  # Return height and width
-                a = [0 for z in range(0, w)]
+        for j in range(0, h):
+            for i in range(0, w):
+                if image_1[j, i] == 0:
+                    a[j] += 1
+                    image_1[j, i] = 255
 
-                for j in range(0, h):
-                    for i in range(0, w):
-                        if img[j, i] == 0:
-                            a[j] += 1
-                            img[j, i] = 255
+        for j in range(0, h):
+            for i in range(0, a[j]):
+                image_1[j, i] = 0
 
-                for j in range(0, h):
-                    for i in range(0, a[j]):
-                        img[j, i] = 0
+        image_2 = img.copy()
+        (h, w, _) = image_2.shape  # Return height and width
+        a = [0 for z in range(0, w)]
+        # Record the peaks of each column
+        for j in range(0, w):  # Traversing a column
+            for i in range(0, h):  # Traverse a row
+                if image_2[i, j] == 0:  # If you change the point to black
+                    a[j] += 1  # Counter of this column plus one count
+                    image_2[i, j] = 255  # Turn it white after recording
 
-                return img
+        for j in range(0, w):  # Traverse each column
+            for i in range((h - a[j]),
+                           h):  # Start from the top point of the column that should be blackened to the bottom
+                image_2[i, j] = 0  # Blackening
 
-            def get_vertical_projection(img):
-                (h, w) = img.shape  # Return height and width
-                a = [0 for z in range(0, w)]
-                # Record the peaks of each column
-                for j in range(0, w):  # Traversing a column
-                    for i in range(0, h):  # Traverse a row
-                        if img[i, j] == 0:  # If you change the point to black
-                            a[j] += 1  # Counter of this column plus one count
-                            img[i, j] = 255  # Turn it white after recording
-
-                for j in range(0, w):  # Traverse each column
-                    for i in range((h - a[j]),
-                                   h):  # Start from the top point of the column that should be blackened to the bottom
-                        img[i, j] = 0  # Blackening
-
-                return img
-            if img.copy().shape:
-                new_data.append(get_horizontal_projection(img.copy()) + get_vertical_projection(img.copy()))
-        return new_data
-
+        return image_1 + image_2
 
     mnist = tf.keras.datasets.mnist
-    (x_treino , y_treino) , (x_teste, y_teste) = mnist.load_data()
+    (x_train, y_train), (x_test, y_test) = mnist.load_data()
 
-    x_treino = tf.keras.utils.normalize(x_treino, axis= 1)
-    x_teste = tf.keras.utils.normalize(x_teste, axis= 1)
+    num_row = 80
+    num_col = 320
+    num = num_row * num_col
 
-    custom_preprocessing_x_train = tf.keras.preprocessing.image.ImageDataGenerator(preprocessing_function=project_dataset(x_treino)).preprocessing_function
-    custom_preprocessing_x_train = tf.keras.utils.normalize(custom_preprocessing_x_train, axis= 1)
-    plt.imshow(custom_preprocessing_x_train[0], cmap="gray")
-    plt.show()
+    # get images
+    images = x_train[0:num]
+    labels = y_train[0:num]
 
-    custom_preprocessing_y_train = tf.keras.preprocessing.image.ImageDataGenerator(
-        preprocessing_function=project_dataset(y_treino)).preprocessing_function
-    custom_preprocessing_y_train = tf.keras.utils.normalize(custom_preprocessing_x_train, axis=1)
-    plt.imshow(custom_preprocessing_y_train[0], cmap="gray")
-    plt.show()
+    # create the class object
+    datagen = ImageDataGenerator(preprocessing_function=project_dataset)
+    # fit the generator
+    datagen.fit(x_train.reshape(x_train.shape[0], 28, 28, 1))
+
+    # define number of rows & columns
+    num_row = 80
+    num_col = 320
+    num = num_row * num_col
 
     model = tf.keras.models.Sequential()
     model.add(tf.keras.layers.Flatten())
-    model.add(tf.keras.layers.Dense(units=128, activation= tf.nn.relu))
+    model.add(tf.keras.layers.Dense(units=128, activation=tf.nn.relu))
     model.add(tf.keras.layers.Dense(units=128, activation=tf.nn.relu))
     model.add(tf.keras.layers.Dense(units=10, activation=tf.nn.softmax))
     model.compile(optimizer="adam", loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-    model.fit(custom_preprocessing_x_train, custom_preprocessing_y_train,  epochs = 3)
-    perda, acuracia  = model.evaluate(x_teste, y_teste)
-    print('accuracy ' , acuracia)
+    model.fit(x_train, y_train, epochs=3)
+    perda, acuracia = model.evaluate(x_train, y_train)
+    print('accuracy ', acuracia)
     print('loss', perda)
     model.summary()
     model.save('ocr.model')
 
 
-
-
 if __name__ == '__main__':
     import sys
     from PyQt5.QtWidgets import QApplication
+
     app = QApplication(sys.argv)
     ocr_app = QImageViewer()
     ocr_app.show()
