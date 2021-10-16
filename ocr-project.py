@@ -241,12 +241,12 @@ class QImageViewer(QMainWindow):
                          [1, img_size, img_size, 1])
         return img
 
-    def find_white_background(self, imgArr, threshold=0.1):
+    def find_white_background(self, imgArr, threshold=0.1815):
         """remove images with transparent or white background"""
 
         background = np.array([255, 255, 255])
         percent = (imgArr == background).sum() / imgArr.size
-        print(percent)
+        print(percent * 100, 'branco')
         if percent >= threshold or percent == 0 or percent <= 0.001:
             return True
         else:
