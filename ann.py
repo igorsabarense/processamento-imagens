@@ -12,17 +12,8 @@ import numpy as np
 import pandas as pd
 import cv2
 
-# Visualization libraries
-import matplotlib.pyplot as plt
 
-import seaborn as sns
 
-# Evaluation library
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import GridSearchCV
-
-# Deep Learning libraries
 import tensorflow as tf
 from tensorflow.keras import layers
 import keras
@@ -31,22 +22,13 @@ from keras.layers.core import Dense, Activation, Dropout
 from keras.datasets import mnist
 from tensorflow.keras.utils import to_categorical
 from keras.wrappers.scikit_learn import KerasClassifier
+import time
+
+
 
 # Digit MNIST dataset
 (X_train_digit, y_train_digit), (X_test_digit, y_test_digit) = mnist.load_data()
 
-# Names of numbers in the dataset in order
-col_names = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine']
-
-# Visualizing the digits
-plt.figure(figsize=(10, 10))
-for i in range(15):
-    plt.subplot(5, 5, i + 1)
-    plt.xticks([])
-    plt.yticks([])
-    plt.imshow(X_train_digit[i], cmap='gray')
-    plt.xlabel(col_names[y_train_digit[i]])
-plt.show()
 
 
 def visualize_input(img, ax):
@@ -61,15 +43,14 @@ def visualize_input(img, ax):
                         color='white' if img[x][y] < thresh else 'black')
 
 
-# Visualizing for digit MNIST
-fig = plt.figure(figsize=(12, 12))
-ax = fig.add_subplot(111)
-visualize_input(X_train_digit[1], ax)
-plt.show()
 
+
+print("preprocesssing mnist digits")
+start = time.time()
 X_train_digit = X_train_digit.reshape(60000, 28, 28, 1)
 X_test_digit = X_test_digit.reshape(10000, 28, 28, 1)
-
+end = time.time()
+print("mnist digits turned into projections - elapsed time: ", end - start)
 # Encoding Digit MNIST Labels
 y_train_digit = to_categorical(y_train_digit)
 
@@ -124,25 +105,18 @@ X_test_digit = Parallel(n_jobs=4)(delayed(node)(arg) for arg in X_test_digit)
 # Creating base neural network
 model = keras.Sequential([
     layers.Flatten(),
-    layers.Dense(128, activation='relu'),
+    layers.Dense(512, activation='relu'),
     layers.Dropout(0.3),
-    layers.BatchNormalization(),
-    layers.Dense(24, activation='relu'),
-    layers.Dropout(0.3),
-    layers.BatchNormalization(),
-    layers.Dense(24, activation='relu'),
-    layers.Dropout(0.3),
-    layers.BatchNormalization(),
-    layers.Dense(10, activation='sigmoid'),
+    layers.Dense(10, activation='softmax'),
 ])
 
 # Compiling the model
-model.compile(loss="binary_crossentropy",
+model.compile(loss="categorical_crossentropy",
               optimizer="adam",
               metrics=['accuracy'])
 
 model.fit(np.array(X_train_digit), np.array(y_train_digit),
-          validation_data=(np.array(X_test_digit), np.array(y_test_digit)), epochs=5)
+          validation_data=(np.array(X_test_digit), np.array(y_test_digit)), epochs=10)
 
 model.save("neural_network")
 # # Evaluating digit MNIST test accuracy
