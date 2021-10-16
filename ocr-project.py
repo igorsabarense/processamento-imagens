@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+
 import cv2
 import numpy as np
 import tensorflow as tf
-from keras.datasets import mnist
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
     qApp, QFileDialog
 from matplotlib import pyplot as plt
+
 """ __author__ = "Bruno Rodrigues, Igor Sabarense e Raphael Nogueira"
     __date__ = "2021"
 """
@@ -251,6 +252,7 @@ class QImageViewer(QMainWindow):
         else:
             return False
 
+
     def processarImagem(self):
         image = self.cv_imagem.copy()
         white_background = cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU if self.find_white_background(
@@ -270,16 +272,21 @@ class QImageViewer(QMainWindow):
 
         model = tf.keras.models.load_model('neural_network')
 
-
         # loop over the digit area candidates
         for c in cnts:
             # compute the bounding box of the contour
             (x, y, w, h) = cv2.boundingRect(c)
-            if w >= 5:
+
+            if w >= 6 and h >= 10:
                 # Taking ROI of the cotour
                 roi = thresh.copy()[y:y + h, x:x + w]
                 roi = np.pad(roi, ((5, 5), (5, 5)), "constant", constant_values=0)
                 roi = cv2.resize(roi, (28, 28))
+
+                cv2.rectangle(self.cv_imagem, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+                if i == 0:
+                    plt.imshow(roi, cmap="gray")
 
                 v_proj = self.get_vertical_projection(roi)
                 h_proj = self.get_horizontal_projection(roi)
@@ -287,23 +294,6 @@ class QImageViewer(QMainWindow):
 
                 prediction = model.predict(np.array(vh_proj).reshape(1, 28, 28))
                 digits.append(np.argmax(prediction[0]))
-
-
-                if i is 0:
-                    plt.subplot(330 + 1 + i)
-                    plt.imshow(roi, cmap='gray')
-                    plt.subplot(330 + 1 + 2)
-                    plt.imshow(v_proj, cmap='gray')
-                    plt.subplot(330 + 1 + 3)
-                    plt.imshow(h_proj, cmap='gray')
-                    plt.subplot(330 + 1 + 5)
-                    plt.imshow(vh_proj, cmap='gray')
-
-                # print(prediction)
-                # append.predict
-
-                if w < (7 * h):
-                    cv2.rectangle(self.cv_imagem, (x, y), (x + w, y + h), (0, 255, 0), 1)
 
                 i = i + 1
 
