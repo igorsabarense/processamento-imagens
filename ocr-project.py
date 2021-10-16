@@ -1,18 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import tensorflow as tf
-# import relevant library
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from matplotlib import pyplot as plt
 import cv2
 import numpy as np
+import tensorflow as tf
+from keras.datasets import mnist
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
     qApp, QFileDialog
-
+from matplotlib import pyplot as plt
 """ __author__ = "Bruno Rodrigues, Igor Sabarense e Raphael Nogueira"
     __date__ = "2021"
 """
@@ -270,19 +268,26 @@ class QImageViewer(QMainWindow):
 
         digits = []
 
+        model = tf.keras.models.load_model('neural_network')
+
+
         # loop over the digit area candidates
         for c in cnts:
             # compute the bounding box of the contour
             (x, y, w, h) = cv2.boundingRect(c)
-            if w >= 5 and h >= 5:
+            if w >= 5:
                 # Taking ROI of the cotour
                 roi = thresh.copy()[y:y + h, x:x + w]
                 roi = np.pad(roi, ((5, 5), (5, 5)), "constant", constant_values=0)
                 roi = cv2.resize(roi, (28, 28))
 
-                v_proj = self.get_vertical_projection(cv2.resize(roi, (28, 28)))
-                h_proj = self.get_horizontal_projection(cv2.resize(roi, (28, 28)))
+                v_proj = self.get_vertical_projection(roi)
+                h_proj = self.get_horizontal_projection(roi)
                 vh_proj = v_proj + h_proj
+
+                prediction = model.predict(np.array(vh_proj).reshape(1, 28, 28))
+                digits.append(np.argmax(prediction[0]))
+
 
                 if i is 0:
                     plt.subplot(330 + 1 + i)
@@ -294,11 +299,6 @@ class QImageViewer(QMainWindow):
                     plt.subplot(330 + 1 + 5)
                     plt.imshow(vh_proj, cmap='gray')
 
-                tf_img = self.infer_prec(roi, 28)  # call preprocess function
-
-                prediction = TensorFlowModel.model.predict(tf_img)
-                digits.append(np.argmax(prediction))
-
                 # print(prediction)
                 # append.predict
 
@@ -309,77 +309,6 @@ class QImageViewer(QMainWindow):
 
         plt.show()
         print(digits)
-
-
-class TensorFlowModel():
-    def __init__(self):
-        super().__init__()
-
-    def project_dataset(img):
-        image_1 = img.copy()
-        (h, w, _) = image_1.shape  # Return height and width
-        a = [0 for z in range(0, w)]
-
-        for j in range(0, h):
-            for i in range(0, w):
-                if image_1[j, i] == 0:
-                    a[j] += 1
-                    image_1[j, i] = 255
-
-        for j in range(0, h):
-            for i in range(0, a[j]):
-                image_1[j, i] = 0
-
-        image_2 = img.copy()
-        (h, w, _) = image_2.shape  # Return height and width
-        a = [0 for z in range(0, w)]
-        # Record the peaks of each column
-        for j in range(0, w):  # Traversing a column
-            for i in range(0, h):  # Traverse a row
-                if image_2[i, j] == 0:  # If you change the point to black
-                    a[j] += 1  # Counter of this column plus one count
-                    image_2[i, j] = 255  # Turn it white after recording
-
-        for j in range(0, w):  # Traverse each column
-            for i in range((h - a[j]),
-                           h):  # Start from the top point of the column that should be blackened to the bottom
-                image_2[i, j] = 0  # Blackening
-
-        return image_1 + image_2
-
-    mnist = tf.keras.datasets.mnist
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
-
-    num_row = 80
-    num_col = 320
-    num = num_row * num_col
-
-    # get images
-    images = x_train[0:num]
-    labels = y_train[0:num]
-
-    # create the class object
-    datagen = ImageDataGenerator(preprocessing_function=project_dataset)
-    # fit the generator
-    datagen.fit(x_train.reshape(x_train.shape[0], 28, 28, 1))
-
-    # define number of rows & columns
-    num_row = 80
-    num_col = 320
-    num = num_row * num_col
-
-    model = tf.keras.models.Sequential()
-    model.add(tf.keras.layers.Flatten())
-    model.add(tf.keras.layers.Dense(units=128, activation=tf.nn.relu))
-    model.add(tf.keras.layers.Dense(units=128, activation=tf.nn.relu))
-    model.add(tf.keras.layers.Dense(units=10, activation=tf.nn.softmax))
-    model.compile(optimizer="adam", loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-    model.fit(x_train, y_train, epochs=3)
-    perda, acuracia = model.evaluate(x_train, y_train)
-    print('accuracy ', acuracia)
-    print('loss', perda)
-    model.summary()
-    model.save('ocr.model')
 
 
 if __name__ == '__main__':
