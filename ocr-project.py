@@ -17,245 +17,249 @@ from matplotlib import pyplot as plt
 """
 
 
-class QImageViewer(QMainWindow):
+def get_vertical_projection(img):
+    thresh = cv2.threshold(img.copy(), 130, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+
+    (h, w) = thresh.shape  # Return height and width
+    a = [0 for z in range(0, w)]
+    # Record the peaks of each column
+    for j in range(0, w):  # Traversing a column
+        for i in range(0, h):  # Traverse a row
+            if thresh[i, j] == 0:  # If you change the point to black
+                a[j] += 1  # Counter of this column plus one count
+                thresh[i, j] = 255  # Turn it white after recording
+
+    for j in range(0, w):  # Traverse each column
+        for i in range((h - a[j]),
+                       h):  # Start from the top point of the column that should be blackened to the bottom
+            thresh[i, j] = 0  # Blackening
+
+    return thresh
+
+
+def get_horizontal_projection(img):
+    thresh = cv2.threshold(img.copy(), 130, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    (h, w) = thresh.shape  # Return height and width
+    a = [0 for z in range(0, w)]
+
+    for j in range(0, h):
+        for i in range(0, w):
+            if thresh[j, i] == 0:
+                a[j] += 1
+                thresh[j, i] = 255
+
+    for j in range(0, h):
+        for i in range(0, a[j]):
+            thresh[j, i] = 0
+
+    return thresh
+
+
+def infer_prec(img, img_size):
+    img = tf.expand_dims(img, -1)  # from 28 x 28 to 28 x 28 x 1
+    img = tf.divide(img, 255)  # normalize
+    img = tf.image.resize(img,  # resize acc to the input
+                          [img_size, img_size])
+    img = tf.reshape(img,  # reshape to add batch dimension
+                     [1, img_size, img_size, 1])
+    return img
+
+
+def find_white_background(imgArr, threshold=0.1815):
+    """remove images with transparent or white background"""
+    background = np.array([255, 255, 255])
+    percent = (imgArr == background).sum() / imgArr.size
+    print(percent * 100, 'branco')
+    if percent >= threshold or percent == 0 or percent <= 0.001:
+        return True
+    else:
+        return False
+
+
+def update_scrolling_area(scroll_area, scale):
+    scroll_area.setValue(int(scale * scroll_area.value()
+                              + ((scale - 1) * scroll_area.pageStep() / 2)))
+
+
+def sort_contours(cnts):
+    # initialize the reverse flag and sort index
+    i = 0
+    boundingBoxes = [cv2.boundingRect(c) for c in cnts]
+    (cnts, boundingBoxes) = zip(*sorted(zip(cnts, boundingBoxes),
+                                        key=lambda b: b[1][i]))
+
+    return cnts
+
+
+class App(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.cv_imagem = None  # csv tem que ser atualizado
-        self.imagem = QImage()  # imagem tem que ser atualizada junto a csv
-        self.impressora = QPrinter()
-        self.fatorEscala = 0.0
-        self.rotacao = 0
+        self.image = QImage()
+        self.printer = QPrinter()
+        self.scale = 0.0
+        self.rot = 0
 
-        self.imagemTela = QLabel()  # imagem que aparece na tela
-        self.imagemTela.setBackgroundRole(QPalette.Base)
-        self.imagemTela.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        self.imagemTela.setScaledContents(True)
+        self.canvas_image = QLabel()
+        self.canvas_image.setBackgroundRole(QPalette.Base)
+        self.canvas_image.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+        self.canvas_image.setScaledContents(True)
 
-        self.areaRolagem = QScrollArea()
-        self.areaRolagem.setAlignment(Qt.AlignCenter)
-        self.areaRolagem.setBackgroundRole(QPalette.Dark)
-        self.areaRolagem.setWidget(self.imagemTela)
-        self.areaRolagem.setVisible(False)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setAlignment(Qt.AlignCenter)
+        self.scroll_area.setBackgroundRole(QPalette.Dark)
+        self.scroll_area.setWidget(self.canvas_image)
+        self.scroll_area.setVisible(False)
 
-        self.setCentralWidget(self.areaRolagem)
+        self.setCentralWidget(self.scroll_area)
 
-        self.criarAcoes()
-        self.criarMenus()
+        self.canvas_actions()
+        self.canvas_menu()
 
         self.setWindowTitle("Processamento de Imagens - Reconhecimento ótico de caracteres ")
         self.resize(800, 600)
 
-    def acaoAbrirArquivo(self):
+        self.cv_image = None
+
+    def open_file(self):
         options = QFileDialog.Options()
 
-        nomeArquivo, _ = QFileDialog.getOpenFileName(self, 'QFileDialog.getOpenFileName()', '',
-                                                     'Images (*.png *.jpeg *.jpg *.bmp *.gif)', options=options)
+        filename, _ = QFileDialog.getOpenFileName(self, 'QFileDialog.getOpenFileName()', '',
+                                                   'Images (*.png *.jpeg *.jpg *.bmp *.gif)', options=options)
 
-        if nomeArquivo:
-            self.cv_imagem = cv2.imread(nomeArquivo)
+        if filename:
+            self.cv_image = cv2.imread(filename)
 
-            image = self.retornaQImage()
-            self.processarImagem()
+            image = self.return_canvas_image()
+            self.process_image()
 
             if image.isNull():
-                QMessageBox.information(self, "Visualizador", "Não foi possível carregar %s." % nomeArquivo)
+                QMessageBox.information(self, "Visualizador", "Não foi possível carregar %s." % filename)
                 return
 
-            self.imagemTela.setPixmap(QPixmap.fromImage(image))
-            self.fatorEscala = 1.0
+            self.canvas_image.setPixmap(QPixmap.fromImage(image))
+            self.scale = 1.0
 
-            self.areaRolagem.setVisible(True)
-            self.acaoImprimir.setEnabled(True)
-            self.acaoAjustarATela.setEnabled(True)
-            self.atualizarAcoes()
+            self.scroll_area.setVisible(True)
+            self.act_print.setEnabled(True)
+            self.fit_canvas.setEnabled(True)
+            self.update_canvas()
 
-            if not self.acaoAjustarATela.isChecked():
-                self.imagemTela.adjustSize()
+            if not self.fit_canvas.isChecked():
+                self.canvas_image.adjustSize()
 
-    def retornaQImage(self):
-        if self.cv_imagem is not None:
+    def return_canvas_image(self):
+        if self.cv_image is not None:
             # Converter formato de BGR pra RGB ( QIMAGE )
-            self.cv_imagem = cv2.cvtColor(self.cv_imagem, cv2.COLOR_BGR2RGB)
-            self.imagem = self.criarDadosQImage()
-        return self.imagem
+            self.cv_image = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2RGB)
+            self.image = self.return_canvas_image_data()
+        return self.image
 
-    def criarDadosQImage(self):
-        altura = self.cv_imagem.shape[0]
-        largura = self.cv_imagem.shape[1]
-        canalCores = 3 * largura
-        return QImage(self.cv_imagem.data, largura, altura, canalCores, QImage.Format_RGB888)
+    def return_canvas_image_data(self):
+        height = self.cv_image.shape[0]
+        width = self.cv_image.shape[1]
+        color_channel = 3 * width
+        return QImage(self.cv_image.data, width, height, color_channel, QImage.Format_RGB888)
 
-    def transformaImagemEmOpenCV(self):
-        imagemFormatada = self.imagem.convertToFormat(4)
+    def canvas_image_to_cv(self):
+        form_image = self.image.convertToFormat(4)
 
-        largura = imagemFormatada.largura()
-        altura = imagemFormatada.altura()
+        width = form_image.width()
+        height = form_image.height()
 
-        ptr = imagemFormatada.bits()
-        ptr.setsize(imagemFormatada.byteCount())
-        return np.array(ptr).reshape(altura, largura, 4)
+        ptr = form_image.bits()
+        ptr.setsize(form_image.byteCount())
+        return np.array(ptr).reshape(height, width, 4)
 
-    def acaoImprimir(self):
+    def act_print(self):
         dialog = QPrintDialog(self.impressora, self)
         if dialog.exec_():
-            telaImpressa = QPainter(self.impressora)
-            rect = telaImpressa.viewport()
-            tamanho = self.imagemTela.pixmap().size()
-            tamanho.scale(rect.size(), Qt.KeepAspectRatio)
-            telaImpressa.setViewport(rect.x(), rect.y(), tamanho.largura(), tamanho.altura())
-            telaImpressa.setWindow(self.imagemTela.pixmap().rect())
-            telaImpressa.drawPixmap(0, 0, self.imagemTela.pixmap())
+            printed_canvas = QPainter(self.impressora)
+            rect = printed_canvas.viewport()
+            canvas_size = self.canvas_image.pixmap().size()
+            canvas_size.scale(rect.size(), Qt.KeepAspectRatio)
+            printed_canvas.setViewport(rect.x(), rect.y(), canvas_size.width(), canvas_size.height())
+            printed_canvas.setWindow(self.canvas_image.pixmap().rect())
+            printed_canvas.drawPixmap(0, 0, self.canvas_image.pixmap())
 
     def zoomIn(self):
-        self.escalarImagem(1.25)
+        self.scale_canvas_image(1.25)
 
     def zoomOut(self):
-        self.escalarImagem(0.8)
+        self.scale_canvas_image(0.8)
 
-    def normalSize(self):
-        self.imagemTela.adjustSize()
-        self.fatorEscala = 1.0
+    def normal_size(self):
+        self.canvas_image.adjustSize()
+        self.scale = 1.0
 
-    def acaoAjustarATela(self):
-        acaoAjustarATela = self.acaoAjustarATela.isChecked()
-        self.areaRolagem.setWidgetResizable(acaoAjustarATela)
-        if not acaoAjustarATela:
-            self.normalSize()
+    def fit_canvas(self):
+        fit_canvas = self.fit_canvas.isChecked()
+        self.scroll_area.setWidgetResizable(fit_canvas)
+        if not fit_canvas:
+            self.normal_size()
 
-        self.atualizarAcoes()
+        self.update_canvas()
 
-    def criarAcoes(self):
-        self.acaoAbrirArquivo = QAction("&Abrir...", self, shortcut="Ctrl+O", triggered=self.acaoAbrirArquivo)
-        self.acaoImprimir = QAction("&Imprimir...", self, shortcut="Ctrl+P", enabled=False, triggered=self.acaoImprimir)
-        self.acaoSair = QAction("&Sair", self, shortcut="Ctrl+Q", triggered=self.close)
-        self.zoomInAct = QAction("Zoom &In (25%)", self, shortcut="Ctrl++", enabled=False, triggered=self.zoomIn)
-        self.zoomOutAct = QAction("Zoom &Out (25%)", self, shortcut="Ctrl+-", enabled=False, triggered=self.zoomOut)
-        self.normalSizeAct = QAction("&Tamanho original", self, shortcut="Ctrl+S", enabled=False,
-                                     triggered=self.normalSize)
-        self.acaoAjustarATela = QAction("&Ajustar a tela", self, enabled=False, checkable=True, shortcut="Ctrl+F",
-                                        triggered=self.acaoAjustarATela)
+    def canvas_actions(self):
+        self.open_file = QAction("&Abrir...", self, shortcut="Ctrl+O", triggered=self.open_file)
+        self.act_print = QAction("&Imprimir...", self, shortcut="Ctrl+P", enabled=False, triggered=self.act_print)
+        self.exit = QAction("&Sair", self, shortcut="Ctrl+Q", triggered=self.close)
+        self.zoom_in = QAction("Zoom &In (25%)", self, shortcut="Ctrl++", enabled=False, triggered=self.zoomIn)
+        self.zoom_out = QAction("Zoom &Out (25%)", self, shortcut="Ctrl+-", enabled=False, triggered=self.zoomOut)
+        self.normal_size = QAction("&Tamanho original", self, shortcut="Ctrl+S", enabled=False,
+                                     triggered=self.normal_size)
+        self.fit_canvas = QAction("&Ajustar a tela", self, enabled=False, checkable=True, shortcut="Ctrl+F",
+                                  triggered=self.fit_canvas)
         self.sobrePyQT5 = QAction("Py&Qt5", self, triggered=qApp.aboutQt)
 
-    def criarMenus(self):
+    def canvas_menu(self):
         # Menu Arquivo
-        self.menuArquivo = QMenu("&Arquivo", self)
-        self.menuArquivo.addAction(self.acaoAbrirArquivo)
-        self.menuArquivo.addAction(self.acaoImprimir)
-        self.menuArquivo.addSeparator()
-        self.menuArquivo.addAction(self.acaoSair)
+        self.menu_file = QMenu("&Arquivo", self)
+        self.menu_file.addAction(self.open_file)
+        self.menu_file.addAction(self.act_print)
+        self.menu_file.addSeparator()
+        self.menu_file.addAction(self.exit)
 
         # Vizualizar
-        self.menuVisualizar = QMenu("&Visualizar", self)
-        self.menuVisualizarZoom = self.menuVisualizar.addMenu("&Zoom")
-        self.menuVisualizarZoom.addAction(self.zoomInAct)
-        self.menuVisualizarZoom.addAction(self.zoomOutAct)
-        self.menuVisualizar.addAction(self.normalSizeAct)
-        self.menuVisualizar.addSeparator()
-        self.menuVisualizar.addAction(self.acaoAjustarATela)
+        self.menu_view = QMenu("&Visualizar", self)
+        self.menu_view_zoom = self.menu_view.addMenu("&Zoom")
+        self.menu_view_zoom.addAction(self.zoom_in)
+        self.menu_view_zoom.addAction(self.zoom_out)
+        self.menu_view.addAction(self.normal_size)
+        self.menu_view.addSeparator()
+        self.menu_view.addAction(self.fit_canvas)
 
         # Menu Processamento
 
-        self.menuProcessamento = QMenu("&Processamento", self)
+        self.menu_processing = QMenu("&Processamento", self)
 
         # Help menu
-        self.helpMenu = QMenu("&Sobre", self)
-        self.helpMenu.addAction(self.sobrePyQT5)
+        self.help_menu = QMenu("&Sobre", self)
+        self.help_menu.addAction(self.sobrePyQT5)
 
         # Menu Bar
-        self.menuBar().addMenu(self.menuArquivo)
-        self.menuBar().addMenu(self.menuVisualizar)
-        self.menuBar().addMenu(self.menuProcessamento)
-        self.menuBar().addMenu(self.helpMenu)
+        self.menuBar().addMenu(self.menu_file)
+        self.menuBar().addMenu(self.menu_view)
+        self.menuBar().addMenu(self.menu_processing)
+        self.menuBar().addMenu(self.help_menu)
 
-    def atualizarAcoes(self):
-        self.zoomInAct.setEnabled(not self.acaoAjustarATela.isChecked())
-        self.zoomOutAct.setEnabled(not self.acaoAjustarATela.isChecked())
-        self.normalSizeAct.setEnabled(not self.acaoAjustarATela.isChecked())
+    def update_canvas(self):
+        self.zoom_in.setEnabled(not self.fit_canvas.isChecked())
+        self.zoom_out.setEnabled(not self.fit_canvas.isChecked())
+        self.normal_size.setEnabled(not self.fit_canvas.isChecked())
 
-    def escalarImagem(self, escala):
-        self.fatorEscala *= escala
-        self.imagemTela.resize(self.fatorEscala * self.imagemTela.pixmap().size())
+    def scale_canvas_image(self, scale):
+        self.scale *= scale
+        self.canvas_image.resize(self.scale * self.canvas_image.pixmap().size())
 
-        self.ajustarBarraRolagem(self.areaRolagem.horizontalScrollBar(), escala)
-        self.ajustarBarraRolagem(self.areaRolagem.verticalScrollBar(), escala)
+        update_scrolling_area(self.scroll_area.horizontalScrollBar(), scale)
+        update_scrolling_area(self.scroll_area.verticalScrollBar(), scale)
 
-        self.zoomInAct.setEnabled(self.fatorEscala < 3.0)
-        self.zoomOutAct.setEnabled(self.fatorEscala > 0.333)
+        self.zoom_in.setEnabled(self.scale < 3.0)
+        self.zoom_out.setEnabled(self.scale > 0.333)
 
-    def ajustarBarraRolagem(self, barraRolagem, escala):
-        barraRolagem.setValue(int(escala * barraRolagem.value()
-                                  + ((escala - 1) * barraRolagem.pageStep() / 2)))
-
-    def sort_contours(self, cnts):
-        # initialize the reverse flag and sort index
-        i = 0
-        boundingBoxes = [cv2.boundingRect(c) for c in cnts]
-        (cnts, boundingBoxes) = zip(*sorted(zip(cnts, boundingBoxes),
-                                            key=lambda b: b[1][i]))
-
-        return cnts
-
-    def get_horizontal_projection(self, img):
-        thresh = cv2.threshold(img.copy(), 130, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-        (h, w) = thresh.shape  # Return height and width
-        a = [0 for z in range(0, w)]
-
-        for j in range(0, h):
-            for i in range(0, w):
-                if thresh[j, i] == 0:
-                    a[j] += 1
-                    thresh[j, i] = 255
-
-        for j in range(0, h):
-            for i in range(0, a[j]):
-                thresh[j, i] = 0
-
-        return thresh
-
-    def get_vertical_projection(self, img):
-        thresh = cv2.threshold(img.copy(), 130, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-
-        (h, w) = thresh.shape  # Return height and width
-        a = [0 for z in range(0, w)]
-        # Record the peaks of each column
-        for j in range(0, w):  # Traversing a column
-            for i in range(0, h):  # Traverse a row
-                if thresh[i, j] == 0:  # If you change the point to black
-                    a[j] += 1  # Counter of this column plus one count
-                    thresh[i, j] = 255  # Turn it white after recording
-
-        for j in range(0, w):  # Traverse each column
-            for i in range((h - a[j]),
-                           h):  # Start from the top point of the column that should be blackened to the bottom
-                thresh[i, j] = 0  # Blackening
-
-        return thresh
-
-    # a preprocess function
-    def infer_prec(self, img, img_size):
-        img = tf.expand_dims(img, -1)  # from 28 x 28 to 28 x 28 x 1
-        img = tf.divide(img, 255)  # normalize
-        img = tf.image.resize(img,  # resize acc to the input
-                              [img_size, img_size])
-        img = tf.reshape(img,  # reshape to add batch dimension
-                         [1, img_size, img_size, 1])
-        return img
-
-    def find_white_background(self, imgArr, threshold=0.1815):
-        """remove images with transparent or white background"""
-
-        background = np.array([255, 255, 255])
-        percent = (imgArr == background).sum() / imgArr.size
-        print(percent * 100, 'branco')
-        if percent >= threshold or percent == 0 or percent <= 0.001:
-            return True
-        else:
-            return False
-
-
-    def processarImagem(self):
-        image = self.cv_imagem.copy()
-        white_background = cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU if self.find_white_background(
+    def process_image(self):
+        image = self.cv_image.copy()
+        white_background = cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU if find_white_background(
             image) else cv2.THRESH_BINARY + cv2.THRESH_OTSU
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -264,7 +268,7 @@ class QImageViewer(QMainWindow):
         # find contours in the thresholded image, then initialize the
         # digit contours lists
         cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
-        cnts = self.sort_contours(cnts)
+        cnts = sort_contours(cnts)
 
         i = 0
 
@@ -283,13 +287,13 @@ class QImageViewer(QMainWindow):
                 roi = np.pad(roi, ((5, 5), (5, 5)), "constant", constant_values=0)
                 roi = cv2.resize(roi, (28, 28))
 
-                cv2.rectangle(self.cv_imagem, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv2.rectangle(self.cv_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
                 if i == 0:
                     plt.imshow(roi, cmap="gray")
 
-                v_proj = self.get_vertical_projection(roi)
-                h_proj = self.get_horizontal_projection(roi)
+                v_proj = get_vertical_projection(roi)
+                h_proj = get_horizontal_projection(roi)
                 vh_proj = v_proj + h_proj
 
                 prediction = model.predict(np.array(vh_proj).reshape(1, 28, 28))
@@ -306,6 +310,6 @@ if __name__ == '__main__':
     from PyQt5.QtWidgets import QApplication
 
     app = QApplication(sys.argv)
-    ocr_app = QImageViewer()
+    ocr_app = App()
     ocr_app.show()
     sys.exit(app.exec_())
