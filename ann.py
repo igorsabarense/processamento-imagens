@@ -106,15 +106,9 @@ X_test_digit = Parallel(n_jobs=4)(delayed(node)(arg) for arg in X_test_digit)
 model = keras.Sequential([
     layers.Flatten(),
     layers.Dense(256, activation='relu'),
-    layers.Dropout(0.3),
-    layers.BatchNormalization(),
     layers.Dense(128, activation='relu'),
-    layers.Dropout(0.3),
-    layers.BatchNormalization(),
     layers.Dense(64, activation='relu'),
-    layers.Dropout(0.3),
-    layers.BatchNormalization(),
-    layers.Dense(10,activation='sigmoid'),
+    layers.Dense(10, activation='softmax'),
 ])
 
 # Compiling the model
@@ -123,7 +117,7 @@ model.compile(loss="categorical_crossentropy",
               metrics=['accuracy'])
 
 model.fit(np.array(X_train_digit), np.array(y_train_digit),
-          validation_data=(np.array(X_test_digit), np.array(y_test_digit)), epochs=8)
+          validation_data=(np.array(X_test_digit), np.array(y_test_digit)), epochs=15)
 
 model.save("neural_network")
 # # Evaluating digit MNIST test accuracy
