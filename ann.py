@@ -117,7 +117,7 @@ model.compile(loss="categorical_crossentropy",
               metrics=['accuracy'])
 
 model.fit(np.array(X_train_digit), np.array(y_train_digit),
-          validation_data=(np.array(X_test_digit), np.array(y_test_digit)), epochs=15)
+          validation_data=(np.array(X_test_digit), np.array(y_test_digit)), epochs=30)
 
 model.save("neural_network")
 # # Evaluating digit MNIST test accuracy
