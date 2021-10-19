@@ -5,12 +5,27 @@
 import cv2
 import numpy as np
 import tensorflow as tf
+from keras.datasets import mnist
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
     qApp, QFileDialog
 from matplotlib import pyplot as plt
+from tensorflow.keras.utils import to_categorical
+import pydot
+import seaborn as sns
+
+# Evaluation library
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import GridSearchCV
+
+# Digit MNIST dataset
+(X_train_digit, y_train_digit), (X_test_digit, y_test_digit) = mnist.load_data()
+# Encoding Digit MNIST Labels
+y_train_digit = to_categorical(y_train_digit)
+y_test_digit = to_categorical(y_test_digit)
 
 """ __author__ = "Bruno Rodrigues, Igor Sabarense e Raphael Nogueira"
     __date__ = "2021"
@@ -69,7 +84,6 @@ def find_white_background(imgArr, threshold=0.1815):
     """remove images with transparent or white background"""
     background = np.array([255, 255, 255])
     percent = (imgArr == background).sum() / imgArr.size
-    print(percent * 100, 'branco')
     if percent >= threshold or percent == 0 or percent <= 0.001:
         return True
     else:
@@ -78,7 +92,7 @@ def find_white_background(imgArr, threshold=0.1815):
 
 def update_scrolling_area(scroll_area, scale):
     scroll_area.setValue(int(scale * scroll_area.value()
-                              + ((scale - 1) * scroll_area.pageStep() / 2)))
+                             + ((scale - 1) * scroll_area.pageStep() / 2)))
 
 
 def sort_contours(cnts):
@@ -89,6 +103,30 @@ def sort_contours(cnts):
                                         key=lambda b: b[1][i]))
 
     return cnts
+
+
+def resize_image(img, size=(18, 18)):
+    h, w = img.shape[:2]
+    c = img.shape[2] if len(img.shape) > 2 else 1
+
+    if h == w:
+        return cv2.resize(img, size, cv2.INTER_AREA)
+
+    dif = h if h > w else w
+
+    interpolation = cv2.INTER_AREA if dif > (size[0] + size[1]) // 2 else cv2.INTER_CUBIC
+
+    x_pos = (dif - w) // 2
+    y_pos = (dif - h) // 2
+
+    if len(img.shape) == 2:
+        mask = np.zeros((dif, dif), dtype=img.dtype)
+        mask[y_pos:y_pos + h, x_pos:x_pos + w] = img[:h, :w]
+    else:
+        mask = np.zeros((dif, dif, c), dtype=img.dtype)
+        mask[y_pos:y_pos + h, x_pos:x_pos + w, :] = img[:h, :w, :]
+
+    return cv2.resize(mask, size, interpolation)
 
 
 class App(QMainWindow):
@@ -119,12 +157,14 @@ class App(QMainWindow):
         self.resize(800, 600)
 
         self.cv_image = None
+        self.roi_digits = []
+        self.projections = []
 
     def open_file(self):
         options = QFileDialog.Options()
 
         filename, _ = QFileDialog.getOpenFileName(self, 'QFileDialog.getOpenFileName()', '',
-                                                   'Images (*.png *.jpeg *.jpg *.bmp *.gif)', options=options)
+                                                  'Images (*.png *.jpeg *.jpg *.bmp *.gif)', options=options)
 
         if filename:
             self.cv_image = cv2.imread(filename)
@@ -206,9 +246,10 @@ class App(QMainWindow):
         self.zoom_in = QAction("Zoom &In (25%)", self, shortcut="Ctrl++", enabled=False, triggered=self.zoomIn)
         self.zoom_out = QAction("Zoom &Out (25%)", self, shortcut="Ctrl+-", enabled=False, triggered=self.zoomOut)
         self.normal_size = QAction("&Tamanho original", self, shortcut="Ctrl+S", enabled=False,
-                                     triggered=self.normal_size)
+                                   triggered=self.normal_size)
         self.fit_canvas = QAction("&Ajustar a tela", self, enabled=False, checkable=True, shortcut="Ctrl+F",
                                   triggered=self.fit_canvas)
+        self.ann = QAction("&Rede Neural Artificial", self, enabled=False, triggered=self.artificial_neural_network)
         self.sobrePyQT5 = QAction("Py&Qt5", self, triggered=qApp.aboutQt)
 
     def canvas_menu(self):
@@ -231,6 +272,7 @@ class App(QMainWindow):
         # Menu Processamento
 
         self.menu_processing = QMenu("&Processamento", self)
+        self.menu_processing.addAction(self.ann)
 
         # Help menu
         self.help_menu = QMenu("&Sobre", self)
@@ -246,6 +288,7 @@ class App(QMainWindow):
         self.zoom_in.setEnabled(not self.fit_canvas.isChecked())
         self.zoom_out.setEnabled(not self.fit_canvas.isChecked())
         self.normal_size.setEnabled(not self.fit_canvas.isChecked())
+        self.ann.setEnabled(not self.fit_canvas.isChecked())
 
     def scale_canvas_image(self, scale):
         self.scale *= scale
@@ -257,7 +300,30 @@ class App(QMainWindow):
         self.zoom_in.setEnabled(self.scale < 3.0)
         self.zoom_out.setEnabled(self.scale > 0.333)
 
+    def svm(self):
+        print('svm')
+
+    def artificial_neural_network(self):
+        model = tf.keras.models.load_model('neural_network')
+        digits = self.projections
+        rois = self.roi_digits
+        # Predicting the labels-DIGIT
+        prediction = model.predict(np.array(digits))
+        prediction = np.argmax(prediction, axis=1)  # Here we get the index of maximum value in the encoded vector
+
+        # Visualizing the digits
+        plt.figure(figsize=(10, 10))
+        for i in range(len(digits)):
+            plt.subplot(10, 10, i + 1)
+            plt.xticks([])
+            plt.yticks([])
+            plt.imshow(rois[i].reshape(28, 28), cmap='gray')
+            plt.xlabel(prediction[i])
+        plt.show()
+
     def process_image(self):
+        self.roi_digits = []
+        self.projections = []
         image = self.cv_image.copy()
         white_background = cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU if find_white_background(
             image) else cv2.THRESH_BINARY + cv2.THRESH_OTSU
@@ -272,37 +338,30 @@ class App(QMainWindow):
 
         i = 0
 
-        digits = []
-
-        model = tf.keras.models.load_model('neural_network')
-
         # loop over the digit area candidates
         for c in cnts:
             # compute the bounding box of the contour
             (x, y, w, h) = cv2.boundingRect(c)
 
-            if w >= 6 and h >= 10:
+            print(w, h)
+
+            if w >= 5 and h >= 10:
                 # Taking ROI of the cotour
                 roi = thresh.copy()[y:y + h, x:x + w]
+                roi = resize_image(roi)
                 roi = np.pad(roi, ((5, 5), (5, 5)), "constant", constant_values=0)
-                roi = cv2.resize(roi, (28, 28))
 
                 cv2.rectangle(self.cv_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-                if i == 0:
-                    plt.imshow(roi, cmap="gray")
 
                 v_proj = get_vertical_projection(roi)
                 h_proj = get_horizontal_projection(roi)
                 vh_proj = v_proj + h_proj
 
-                prediction = model.predict(np.array(vh_proj).reshape(1, 28, 28))
-                digits.append(np.argmax(prediction[0]))
+                reshaped_projection = np.array(vh_proj).reshape(1, 28, 28)
 
+                self.roi_digits.append(roi)
+                self.projections.append(reshaped_projection)
                 i = i + 1
-
-        plt.show()
-        print(digits)
 
 
 if __name__ == '__main__':
