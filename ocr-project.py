@@ -7,12 +7,13 @@ import numpy as np
 import tensorflow as tf
 from keras.datasets import mnist
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter
+from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
     qApp, QFileDialog
 from matplotlib import pyplot as plt
 from tensorflow.keras.utils import to_categorical
+from imutils import contours
 import pydot
 import seaborn as sns
 
@@ -152,6 +153,7 @@ class App(QMainWindow):
 
         self.canvas_actions()
         self.canvas_menu()
+        self.setWindowIcon(QIcon('logo_pucminas.png'))
 
         self.setWindowTitle("Processamento de Imagens - Reconhecimento ótico de caracteres ")
         self.resize(800, 600)
@@ -250,6 +252,7 @@ class App(QMainWindow):
         self.fit_canvas = QAction("&Ajustar a tela", self, enabled=False, checkable=True, shortcut="Ctrl+F",
                                   triggered=self.fit_canvas)
         self.ann = QAction("&Rede Neural Artificial", self, enabled=False, triggered=self.artificial_neural_network)
+        self.svm = QAction("&SVM", self, enabled=False, triggered=self.svm)
         self.sobrePyQT5 = QAction("Py&Qt5", self, triggered=qApp.aboutQt)
 
     def canvas_menu(self):
@@ -273,7 +276,7 @@ class App(QMainWindow):
 
         self.menu_processing = QMenu("&Processamento", self)
         self.menu_processing.addAction(self.ann)
-
+        self.menu_processing.addAction(self.svm)
         # Help menu
         self.help_menu = QMenu("&Sobre", self)
         self.help_menu.addAction(self.sobrePyQT5)
@@ -289,6 +292,7 @@ class App(QMainWindow):
         self.zoom_out.setEnabled(not self.fit_canvas.isChecked())
         self.normal_size.setEnabled(not self.fit_canvas.isChecked())
         self.ann.setEnabled(not self.fit_canvas.isChecked())
+        self.svm.setEnabled(not self.fit_canvas.isChecked())
 
     def scale_canvas_image(self, scale):
         self.scale *= scale
@@ -301,25 +305,51 @@ class App(QMainWindow):
         self.zoom_out.setEnabled(self.scale > 0.333)
 
     def svm(self):
-        print('svm')
+        self.draw_prediction("svm", "SVM ( Support Vector Machine )")
 
     def artificial_neural_network(self):
-        model = tf.keras.models.load_model('neural_network')
+        self.draw_prediction("neural_network", "Rede Neural Artificial")
+
+    def draw_prediction(self, model_name, title):
+        model = tf.keras.models.load_model(model_name)
         digits = self.projections
         rois = self.roi_digits
         # Predicting the labels-DIGIT
         prediction = model.predict(np.array(digits))
         prediction = np.argmax(prediction, axis=1)  # Here we get the index of maximum value in the encoded vector
-
         # Visualizing the digits
-        plt.figure(figsize=(10, 10))
-        for i in range(len(digits)):
+
+        fig = plt.figure(figsize=(4, 9))
+        for i in range(len(rois)):
             plt.subplot(10, 10, i + 1)
             plt.xticks([])
             plt.yticks([])
             plt.imshow(rois[i].reshape(28, 28), cmap='gray')
             plt.xlabel(prediction[i])
+        plt.subplots_adjust(hspace=0.5)
+        plt.suptitle(title)
         plt.show()
+
+        fig.canvas.draw()
+        image_from_plot = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+        image_from_plot = image_from_plot.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+        self.cv_image = image_from_plot
+        image = self.return_canvas_image()
+
+        self.canvas_image.setPixmap(QPixmap.fromImage(image))
+        self.scale = 1.0
+
+        self.scroll_area.setVisible(True)
+        self.act_print.setEnabled(True)
+        self.fit_canvas.setEnabled(False)
+        self.update_canvas()
+
+        if not self.fit_canvas.isChecked():
+            self.canvas_image.adjustSize()
+
+
+
 
     def process_image(self):
         self.roi_digits = []
@@ -333,8 +363,9 @@ class App(QMainWindow):
 
         # find contours in the thresholded image, then initialize the
         # digit contours lists
-        cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
-        cnts = sort_contours(cnts)
+        cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+        cnts, _ = contours.sort_contours(cnts, method="left-to-right")
 
         i = 0
 
