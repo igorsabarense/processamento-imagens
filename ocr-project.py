@@ -324,15 +324,21 @@ class App(QMainWindow):
     def artificial_neural_network(self):
         self.draw_prediction("neural_network", "Rede Neural Artificial", True)
 
-    def draw_prediction(self, model_name, title, is_ann):
-        model = tf.keras.models.load_model(model_name) if is_ann else pickle.load(open(model_name, 'rb'))
-        digits = np.array(self.projections)
-        rois = self.roi_digits
-        # Predicting the labels-DIGIT
-        prediction = model.predict(digits) if is_ann else digits.reshape(digits.shape[0], 28 * 28)
-        prediction = np.argmax(prediction, axis=1)  # Here we get the index of maximum value in the encoded vector
-        # Visualizing the digits
 
+    #desenha na tela o resultado da IA1
+    def draw_prediction(self, model_name, title, is_ann):
+        #carrega o modelo svm ou rede neural
+        model = tf.keras.models.load_model(model_name) if is_ann else pickle.load(open(model_name, 'rb'))
+        #projecoes
+        digits = np.array(self.projections)
+        #regiao de interesse
+        rois = self.roi_digits
+
+        # utiliza o modelo para descobrir quais são os digitos de acordo com o vetor de projecoes
+        prediction = model.predict(digits) if is_ann else digits.reshape(digits.shape[0], 28 * 28)
+        prediction = np.argmax(prediction, axis=1)
+
+        # plota uma imagem com os resultados de sua IA
         fig = plt.figure(figsize=(8, 6))
         for i in range(len(rois)):
             plt.subplot(8, 6, i + 1)
