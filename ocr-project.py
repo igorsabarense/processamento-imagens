@@ -15,6 +15,7 @@ from matplotlib import pyplot as plt
 from scipy.ndimage import interpolation
 from tensorflow.keras.utils import to_categorical
 from imutils import contours
+
 import pydot
 import seaborn as sns
 
@@ -70,7 +71,6 @@ def get_horizontal_projection(img):
             thresh[j, i] = 0
 
     return thresh
-
 
 
 def find_white_background(imgArr, threshold=0.1815):
@@ -322,14 +322,14 @@ class App(QMainWindow):
         self.draw_prediction("svm_model.sav", "SVM ( Support Vector Machine )", False)
 
     def artificial_neural_network(self):
-        self.draw_prediction("neural_network", "Rede Neural Artificial" , True)
+        self.draw_prediction("neural_network", "Rede Neural Artificial", True)
 
-    def draw_prediction(self, model_name, title  , is_ann):
+    def draw_prediction(self, model_name, title, is_ann):
         model = tf.keras.models.load_model(model_name) if is_ann else pickle.load(open(model_name, 'rb'))
         digits = np.array(self.projections)
         rois = self.roi_digits
         # Predicting the labels-DIGIT
-        prediction = model.predict(digits) if is_ann else digits.reshape(digits.shape[0], 28*28)
+        prediction = model.predict(digits) if is_ann else digits.reshape(digits.shape[0], 28 * 28)
         prediction = np.argmax(prediction, axis=1)  # Here we get the index of maximum value in the encoded vector
         # Visualizing the digits
 
@@ -365,20 +365,19 @@ class App(QMainWindow):
     def process_image(self):
         self.roi_digits = []
         self.projections = []
-        image = self.cv_image.copy()
-
-
+        image = self.cv_image.copy()  # cria copia da imagem na tela
         white_background = cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU if find_white_background(
-            image) else cv2.THRESH_BINARY + cv2.THRESH_OTSU
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(gray, (5, 5), 0)
-        thresh = cv2.threshold(blur, 0, 255, white_background)[1]
+            image) else cv2.THRESH_BINARY + cv2.THRESH_OTSU  # de acordo com o fundo da imagem, cria um metodo de segmentação diferente
+                                                             # fundo preto ou branco
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)       # transforma em escala de cinza
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)             # embaça para tirar ruído
+        thresh = cv2.threshold(blur, 0, 255, white_background)[1]   #limiarização da imagem
 
         # find contours in the thresholded image, then initialize the
         # digit contours lists
-        cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) #acha os contornos dos digitos na imagem
         cnts = cnts[0] if len(cnts) == 2 else cnts[1]
-        cnts, _ = contours.sort_contours(cnts, method="left-to-right")
+        cnts, _ = contours.sort_contours(cnts, method="left-to-right") #ordena os contornos da esquerda para direita
 
         i = 0
 
@@ -391,21 +390,22 @@ class App(QMainWindow):
 
             if w >= 5 and h >= 10:
                 # Taking ROI of the cotour
-                roi = thresh.copy()[y:y + h, x:x + w]
-                roi = deskew(roi)
-                roi = resize_image(roi)
-                roi = np.pad(roi, ((5, 5), (5, 5)), "constant", constant_values=0)
+                # MNIST 20x20 centered in a bounding box 28x28
+                roi = thresh.copy()[y:y + h, x:x + w]      #pega a regiao de interesse da imagem
+                roi = deskew(roi)                          # alinha a imagem para ficar reta
+                roi = resize_image(roi)                    # ajusta o tamanho da imagem para 18,18 para depois ficar mais proxima ao MNIST
+                roi = np.pad(roi, ((5, 5), (5, 5)), "constant", constant_values=0)  # centraliza a imagem assim transformando em 28,28
 
-                cv2.rectangle(self.cv_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv2.rectangle(self.cv_image, (x, y), (x + w, y + h), (0, 255, 0), 2)    # cria um retangulo verde demonstrando os digitos
 
-                v_proj = get_vertical_projection(roi)
-                h_proj = get_horizontal_projection(roi)
-                vh_proj = v_proj + h_proj
+                v_proj = get_vertical_projection(roi)           #cria projecao vertical
+                h_proj = get_horizontal_projection(roi)         #cria projecao horizontal
+                vh_proj = v_proj + h_proj                       #concatena as duas projecoes
 
-                reshaped_projection = np.array(vh_proj).reshape(1, 28, 28)
+                reshaped_projection = np.array(vh_proj).reshape(1, 28, 28)  #reshape para se adequar ao modelo
 
-                self.roi_digits.append(roi)
-                self.projections.append(reshaped_projection)
+                self.roi_digits.append(roi)                        # adiciona o digito a um vetor de regioes de interesse
+                self.projections.append(reshaped_projection)       # adiciona a projecao concatenada a um vetor
                 i = i + 1
 
 
