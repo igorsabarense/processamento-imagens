@@ -6,9 +6,10 @@ import cv2
 # Basic Libraries
 import numpy as np
 from keras.datasets import mnist
+from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import LinearSVC
+from sklearn.svm import LinearSVC, SVC
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score
 import seaborn as sns
@@ -17,7 +18,7 @@ from matplotlib import pyplot as plt
 # Digit MNIST dataset
 (X_train_digit, y_train_digit), (X_test_digit, y_test_digit) = mnist.load_data()
 
-num_tests = 40000
+num_tests = 60000
 
 X_train_digit = X_train_digit[:num_tests]   # fewer samples
 X_test_digit = X_test_digit
@@ -74,8 +75,12 @@ print("end project")
 X_train_digit_flattened = np.array(X_train_digit).reshape(num_tests, 28*28)
 X_test_digit_flattened = np.array(X_test_digit).reshape(10000, 28*28)
 
-C = 1.0  #
-clf = make_pipeline(StandardScaler(), LinearSVC(dual=True));
+
+
+
+# specify model
+clf = SVC(kernel='rbf')
+
 
 start = time.time()
 print("start training")
