@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
+import pickle
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -12,6 +12,7 @@ from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
     qApp, QFileDialog
 from matplotlib import pyplot as plt
+from scipy.ndimage import interpolation
 from tensorflow.keras.utils import to_categorical
 from imutils import contours
 import pydot
@@ -71,15 +72,6 @@ def get_horizontal_projection(img):
     return thresh
 
 
-def infer_prec(img, img_size):
-    img = tf.expand_dims(img, -1)  # from 28 x 28 to 28 x 28 x 1
-    img = tf.divide(img, 255)  # normalize
-    img = tf.image.resize(img,  # resize acc to the input
-                          [img_size, img_size])
-    img = tf.reshape(img,  # reshape to add batch dimension
-                     [1, img_size, img_size, 1])
-    return img
-
 
 def find_white_background(imgArr, threshold=0.1815):
     """remove images with transparent or white background"""
@@ -130,6 +122,28 @@ def resize_image(img, size=(18, 18)):
     return cv2.resize(mask, size, interpolation)
 
 
+def moments(image):
+    c0, c1 = np.mgrid[:image.shape[0], :image.shape[1]]  # A trick in numPy to create a mesh grid
+    totalImage = np.sum(image)  # sum of pixels
+    m0 = np.sum(c0 * image) / totalImage  # mu_x
+    m1 = np.sum(c1 * image) / totalImage  # mu_y
+    m00 = np.sum((c0 - m0) ** 2 * image) / totalImage  # var(x)
+    m11 = np.sum((c1 - m1) ** 2 * image) / totalImage  # var(y)
+    m01 = np.sum((c0 - m0) * (c1 - m1) * image) / totalImage  # covariance(x,y)
+    mu_vector = np.array([m0, m1])  # Notice that these are \mu_x, \mu_y respectively
+    covariance_matrix = np.array([[m00, m01], [m01, m11]])  # Do you see a similarity between the covariance matrix
+    return mu_vector, covariance_matrix
+
+
+def deskew(image):
+    c, v = moments(image)
+    alpha = v[0, 1] / v[0, 0]
+    affine = np.array([[1, 0], [alpha, 1]])
+    ocenter = np.array(image.shape) / 2.0
+    offset = c - np.dot(affine, ocenter)
+    return interpolation.affine_transform(image, affine, offset=offset)
+
+
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -156,7 +170,7 @@ class App(QMainWindow):
         self.setWindowIcon(QIcon('logo_pucminas.png'))
 
         self.setWindowTitle("Processamento de Imagens - Reconhecimento ótico de caracteres ")
-        self.resize(800, 600)
+        self.resize(1024, 768)
 
         self.cv_image = None
         self.roi_digits = []
@@ -305,23 +319,23 @@ class App(QMainWindow):
         self.zoom_out.setEnabled(self.scale > 0.333)
 
     def svm(self):
-        self.draw_prediction("svm", "SVM ( Support Vector Machine )")
+        self.draw_prediction("svm_model.sav", "SVM ( Support Vector Machine )", False)
 
     def artificial_neural_network(self):
-        self.draw_prediction("neural_network", "Rede Neural Artificial")
+        self.draw_prediction("neural_network", "Rede Neural Artificial" , True)
 
-    def draw_prediction(self, model_name, title):
-        model = tf.keras.models.load_model(model_name)
-        digits = self.projections
+    def draw_prediction(self, model_name, title  , is_ann):
+        model = tf.keras.models.load_model(model_name) if is_ann else pickle.load(open(model_name, 'rb'))
+        digits = np.array(self.projections)
         rois = self.roi_digits
         # Predicting the labels-DIGIT
-        prediction = model.predict(np.array(digits))
+        prediction = model.predict(digits) if is_ann else digits.reshape(digits.shape[0], 28*28)
         prediction = np.argmax(prediction, axis=1)  # Here we get the index of maximum value in the encoded vector
         # Visualizing the digits
 
-        fig = plt.figure(figsize=(4, 9))
+        fig = plt.figure(figsize=(8, 6))
         for i in range(len(rois)):
-            plt.subplot(10, 10, i + 1)
+            plt.subplot(8, 6, i + 1)
             plt.xticks([])
             plt.yticks([])
             plt.imshow(rois[i].reshape(28, 28), cmap='gray')
@@ -348,13 +362,12 @@ class App(QMainWindow):
         if not self.fit_canvas.isChecked():
             self.canvas_image.adjustSize()
 
-
-
-
     def process_image(self):
         self.roi_digits = []
         self.projections = []
         image = self.cv_image.copy()
+
+
         white_background = cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU if find_white_background(
             image) else cv2.THRESH_BINARY + cv2.THRESH_OTSU
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -379,6 +392,7 @@ class App(QMainWindow):
             if w >= 5 and h >= 10:
                 # Taking ROI of the cotour
                 roi = thresh.copy()[y:y + h, x:x + w]
+                roi = deskew(roi)
                 roi = resize_image(roi)
                 roi = np.pad(roi, ((5, 5), (5, 5)), "constant", constant_values=0)
 

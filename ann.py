@@ -121,7 +121,7 @@ y_test_digit_eval = np.argmax(y_test_digit, axis=1)
 con_mat = confusion_matrix(y_test_digit_eval, y_predict)
 plt.style.use('seaborn-deep')
 plt.figure(figsize=(10, 10))
-sns.heatmap(con_mat, annot=True, annot_kws={'size': 15}, linewidths=0.5, fmt="d", cmap="gray")
+sns.heatmap(con_mat, annot=True, annot_kws={'size': 15}, linewidths=0.5, fmt="d")
 plt.title(f'True or False predicted digit MNIST - Accuracy: {test_acc_digit:.2f}%\n'.format(test_acc_digit), fontweight='bold', fontsize=15)
 
 "My name is {fname}, I'm {age}".format(fname = "John", age = 36)
