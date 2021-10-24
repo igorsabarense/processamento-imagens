@@ -335,8 +335,13 @@ class App(QMainWindow):
         rois = self.roi_digits
 
         # utiliza o modelo para descobrir quais são os digitos de acordo com o vetor de projecoes
-        prediction = model.predict(digits) if is_ann else digits.reshape(digits.shape[0], 28 * 28)
-        prediction = np.argmax(prediction, axis=1)
+        if not is_ann:
+            digits = digits.reshape(digits.shape[0], 28 * 28)
+
+        prediction = model.predict(digits)
+
+        if is_ann:
+            prediction = np.argmax(prediction, axis=1)
 
         # plota uma imagem com os resultados de sua IA
         fig = plt.figure(figsize=(8, 6))

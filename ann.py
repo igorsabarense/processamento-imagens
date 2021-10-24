@@ -13,23 +13,9 @@ from sklearn.metrics import confusion_matrix
 from tensorflow.keras import layers
 from tensorflow.keras.utils import to_categorical
 
+
 # Digit MNIST dataset
 (X_train_digit, y_train_digit), (X_test_digit, y_test_digit) = mnist.load_data()
-
-
-
-def visualize_input(img, ax):
-    ax.imshow(img, cmap='summer')
-    width, height = img.shape
-    thresh = img.max() / 2.5
-    for x in range(width):
-        for y in range(height):
-            ax.annotate(str(round(img[x][y], 2)), xy=(y, x),
-                        horizontalalignment='center',
-                        verticalalignment='center',
-                        color='white' if img[x][y] < thresh else 'black')
-
-
 
 
 print("preprocesssing mnist digits")
