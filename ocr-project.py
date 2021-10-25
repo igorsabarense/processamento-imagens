@@ -397,8 +397,6 @@ class App(QMainWindow):
             # compute the bounding box of the contour
             (x, y, w, h) = cv2.boundingRect(c)
 
-            print(w, h)
-
             if w >= 5 and h >= 10:
                 # Taking ROI of the cotour
                 # MNIST 20x20 centered in a bounding box 28x28

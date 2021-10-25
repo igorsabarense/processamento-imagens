@@ -19,11 +19,10 @@ from tensorflow.keras.utils import to_categorical
 
 
 print("preprocesssing mnist digits")
-start = time.time()
+
 X_train_digit = X_train_digit.reshape(60000, 28, 28, 1)
 X_test_digit = X_test_digit.reshape(10000, 28, 28, 1)
-end = time.time()
-print("mnist digits turned into projections - elapsed time: ", end - start)
+
 # Encoding Digit MNIST Labels
 y_train_digit = to_categorical(y_train_digit)
 y_test_digit = to_categorical(y_test_digit)
@@ -88,10 +87,13 @@ model.compile(loss="categorical_crossentropy",
               optimizer="adam",
               metrics=['accuracy'])
 
+start_training = time.time()
+
 model.fit(np.array(X_train_digit), np.array(y_train_digit),
           validation_data=(np.array(X_test_digit), np.array(y_test_digit)), epochs=15)
 
 model.save("neural_network")
+
 # Evaluating digit MNIST test accuracy
 test_loss_digit, test_acc_digit = model.evaluate(np.array(X_test_digit), np.array(y_test_digit))
 test_loss_digit = test_loss_digit * 100
@@ -103,13 +105,17 @@ y_predict = model.predict(np.array(X_test_digit))
 y_predict = np.argmax(y_predict, axis=1)  # Here we get the index of maximum value in the encoded vector
 y_test_digit_eval = np.argmax(y_test_digit, axis=1)
 
+end_training = time.time()
+
+total_training_time = end_training - start_training
+
+
 # Confusion matrix for Digit MNIST
 con_mat = confusion_matrix(y_test_digit_eval, y_predict)
 plt.style.use('seaborn-deep')
 plt.figure(figsize=(10, 10))
 sns.heatmap(con_mat, annot=True, annot_kws={'size': 15}, linewidths=0.5, fmt="d")
-plt.title(f'True or False predicted digit MNIST - Accuracy: {test_acc_digit:.2f}%\n'.format(test_acc_digit), fontweight='bold', fontsize=15)
-
-"My name is {fname}, I'm {age}".format(fname = "John", age = 36)
-
+plt.title(f'MNIST (ANN) - Accuracy: {test_acc_digit:.2f}%\nTime(sec): {total_training_time:.2f}\n', fontweight='bold', fontsize=15)
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
 plt.show()
