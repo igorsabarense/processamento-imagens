@@ -14,9 +14,14 @@ from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
     qApp, QFileDialog
+
 from imutils import contours
 from keras.utils.np_utils import normalize
 from matplotlib import pyplot as plt
+
+import ann
+import svm
+
 from processing_utils import deskew, getVerticalProjectionProfile, getHorizontalProjectionProfile, \
     interpolate_projection, find_white_background, resize_image
 
@@ -199,6 +204,7 @@ class App(QMainWindow):
         self.zoom_in.setEnabled(self.scale < 3.0)
         self.zoom_out.setEnabled(self.scale > 0.333)
 
+
     """ 
          Above this line, the methods are interface default methods.
          Below this line , the methods are used to create the OCR.
@@ -206,11 +212,27 @@ class App(QMainWindow):
 
     def svm(self):
         # carrega o modelo svm
-        self.draw_prediction(pickle.load(open("svm_model.sav", 'rb')), "SVM ( Support Vector Machine )", False)
+        model = None
+        try:
+            model = pickle.load(open("svm_model.sav", 'rb'))
+        except:
+            svm.run_support_vector_machine_model()
+            model = pickle.load(open("svm_model.sav", 'rb'))
+        finally:
+            self.draw_prediction(model, "SVM ( Support Vector Machine )", False)
 
     def artificial_neural_network(self):
         # carrega o modelo rede neural
-        self.draw_prediction(tf.keras.models.load_model("neural_network"), "Rede Neural Artificial", True)
+        model = None
+        try:
+            model = tf.keras.models.load_model("neural_network")
+        except:
+            ann.run_neural_network_model()
+            model = tf.keras.models.load_model("neural_network")
+        finally:
+            self.draw_prediction(model, "Rede Neural Artificial", True)
+
+
 
     # desenha na tela o resultado da IA1
     def draw_prediction(self, model, title, is_ann):
