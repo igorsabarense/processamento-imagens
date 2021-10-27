@@ -53,9 +53,9 @@ def resize_image(img, size=(18, 18)):
 
 
 def interpolate_projection(projection):
-    f = interpolate.interp1d(np.arange(0, len(projection)), projection)
-    my_stretched_alfa = f(np.linspace(0.0, len(projection) - 1, 32))
-    return my_stretched_alfa.tolist()
+    interpol_func = interpolate.interp1d(np.arange(0, len(projection)), projection)
+    stretch_array = interpol_func(np.linspace(0.0, len(projection) - 1, 32))
+    return stretch_array.tolist()
 
 
 def getHorizontalProjectionProfile(image):
@@ -90,7 +90,7 @@ def deskew(image):
     return interpolation.affine_transform(image, affine, offset=offset)
 
 
-def node(arg):
+def process_projection_profile(arg):
     img = deskew(arg.copy())
     vertical_proj = getVerticalProjectionProfile(img.copy())
     horizontal_proj = getHorizontalProjectionProfile(img.copy())
