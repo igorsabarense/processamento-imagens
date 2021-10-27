@@ -265,7 +265,6 @@ class App(QMainWindow):
             plt.xlabel(prediction[i])
         plt.subplots_adjust(hspace=0.5)
         plt.suptitle(title)
-        plt.show()
 
         fig.canvas.draw()
         image_from_plot = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
