@@ -6,6 +6,7 @@ import cv2
 # Basic Libraries
 import numpy as np
 from keras.datasets import mnist
+from keras.utils.np_utils import normalize
 from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -26,57 +27,49 @@ X_test_digit = X_test_digit
 y_train_digit = y_train_digit[:num_tests]
 y_test_digit = y_test_digit
 
+def getHorizontalProjectionProfile(image):
 
-def get_proj_img(img):
-    image0 = cv2.threshold(img.copy(), 130, 255, cv2.THRESH_BINARY)[1]
-    image1 = cv2.threshold(img.copy(), 130, 255, cv2.THRESH_BINARY)[1]
-    (h, w) = image0.shape  # Return height and width
+    horizontal_projection = np.sum(image, axis=1)
 
-    a = [0 for z in range(0, w)]
-    b = [0 for z in range(0, w)]
+    return horizontal_projection.tolist()
 
-    for j in range(0, h):
-        for i in range(0, w):
-            if image0[j, i] == 0:
-                a[j] += 1
-                image0[j, i] = 255
 
-    for j in range(0, h):
-        for i in range(0, a[j]):
-            image0[j, i] = 0
+def getVerticalProjectionProfile(image):
 
-    a = [0 for z in range(0, w)]
-    # Record the peaks of each column
-    for j in range(0, w):  # Traversing a column
-        for i in range(0, h):  # Traverse a row
-            if image1[i, j] == 0:  # If you change the point to black
-                b[j] += 1  # Counter of this column plus one count
-                image1[i, j] = 255  # Turn it white after recording
+    vertical_projection = np.sum(image, axis=0)
 
-    for j in range(0, w):  # Traverse each column
-        for i in range((h - b[j]),
-                       h):  # Start from the top point of the column that should be blackened to the bottom
-            image1[i, j] = 0  # Blackening
-    return image0 + image1
+    return vertical_projection.tolist()
 
 
 from joblib import Parallel, delayed
 
+from scipy import interpolate
 
 def node(arg):
-    return get_proj_img(arg)
 
+    vertical_proj = getVerticalProjectionProfile(arg)
+    horizontal_proj = getHorizontalProjectionProfile(arg)
+
+    vh = interpolate_projection(vertical_proj) + interpolate_projection(horizontal_proj)
+
+    return normalize(vh, axis=0)[0]
+
+
+def interpolate_projection(projection):
+    f = interpolate.interp1d(np.arange(0, len(projection)), projection)
+    my_stretched_alfa = f(np.linspace(0.0, len(projection) - 1, 32))
+    return my_stretched_alfa.tolist()
+
+print("turning dataset into image projections")
 
 X_train_digit = Parallel(n_jobs=4)(delayed(node)(arg) for arg in X_train_digit)
 X_test_digit = Parallel(n_jobs=4)(delayed(node)(arg) for arg in X_test_digit)
 
-print("turning dataset into image projections")
-
-X_train_digit_flattened = np.array(X_train_digit).reshape(num_tests, 28 * 28)
-X_test_digit_flattened = np.array(X_test_digit).reshape(10000, 28 * 28)
+X_train_digit_flattened = np.array(X_train_digit)
+X_test_digit_flattened = np.array(X_test_digit)
 
 # specify model
-clf = SVC(C=0.1, gamma=1, kernel='poly')
+clf = SVC(C=0.1, gamma=1, kernel='rbf', verbose=True)
 
 start = time.time()
 print("start training")
