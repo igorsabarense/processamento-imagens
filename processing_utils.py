@@ -1,8 +1,6 @@
 """ __author__ = "Bruno Rodrigues, Igor Sabarense e Raphael Nogueira"
     __date__ = "2021"
 """
-
-
 import cv2
 import numpy as np
 from keras.utils.np_utils import normalize
@@ -20,14 +18,14 @@ def find_white_background(imgArr, threshold=0.1815):
         return False
 
 
-def sort_contours(cnts):
+def sort_contours(contours):
     # initialize the reverse flag and sort index
     i = 0
-    boundingBoxes = [cv2.boundingRect(c) for c in cnts]
-    (cnts, boundingBoxes) = zip(*sorted(zip(cnts, boundingBoxes),
-                                        key=lambda b: b[1][i]))
+    boundingBoxes = [cv2.boundingRect(c) for c in contours]
+    (contours, boundingBoxes) = zip(*sorted(zip(contours, boundingBoxes),
+                                            key=lambda b: b[1][i]))
 
-    return cnts
+    return contours
 
 
 def resize_image(img, size=(18, 18)):
@@ -39,7 +37,7 @@ def resize_image(img, size=(18, 18)):
 
     dif = h if h > w else w
 
-    interpolation = cv2.INTER_AREA if dif > (size[0] + size[1]) // 2 else cv2.INTER_CUBIC
+    interpolation_ = cv2.INTER_AREA if dif > (size[0] + size[1]) // 2 else cv2.INTER_CUBIC
 
     x_pos = (dif - w) // 2
     y_pos = (dif - h) // 2
@@ -51,7 +49,7 @@ def resize_image(img, size=(18, 18)):
         mask = np.zeros((dif, dif, c), dtype=img.dtype)
         mask[y_pos:y_pos + h, x_pos:x_pos + w, :] = img[:h, :w, :]
 
-    return cv2.resize(mask, size, interpolation)
+    return cv2.resize(mask, size, interpolation_)
 
 
 def interpolate_projection(projection):

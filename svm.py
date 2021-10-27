@@ -2,12 +2,8 @@
 """ __author__ = "Bruno Rodrigues, Igor Sabarense e Raphael Nogueira"
     __date__ = "2021"
 """
-
-
 import pickle
 import time
-
-# Basic Libraries
 import numpy as np
 import seaborn as sns
 from keras.datasets import mnist

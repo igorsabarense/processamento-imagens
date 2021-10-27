@@ -6,7 +6,6 @@
 """
 
 import pickle
-
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -16,22 +15,11 @@ from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
     qApp, QFileDialog
 from imutils import contours
-from keras.datasets import mnist
 from keras.utils.np_utils import normalize
 from matplotlib import pyplot as plt
-from scipy.interpolate import interpolate
-from tensorflow.keras.utils import to_categorical
-
-# Digit MNIST dataset
 from processing_utils import deskew, getVerticalProjectionProfile, getHorizontalProjectionProfile, \
     interpolate_projection, find_white_background, resize_image
 
-# Evaluation library
-
-(X_train_digit, y_train_digit), (X_test_digit, y_test_digit) = mnist.load_data()
-# Encoding Digit MNIST Labels
-y_train_digit = to_categorical(y_train_digit)
-y_test_digit = to_categorical(y_test_digit)
 
 class App(QMainWindow):
     def __init__(self):
