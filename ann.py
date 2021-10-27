@@ -14,14 +14,16 @@ from matplotlib import pyplot as plt
 from sklearn.metrics import confusion_matrix
 from tensorflow.keras import layers
 from processing_utils import node
+import multiprocessing
 
 
 def run_neural_network_model():
     # Digit MNIST dataset
     (X_train_digit, y_train_digit), (X_test_digit, y_test_digit) = mnist.load_data()
+    num_cores = multiprocessing.cpu_count()
     print("preprocesssing mnist digits")
-    X_train_digit = Parallel(n_jobs=4)(delayed(node)(arg) for arg in X_train_digit)
-    X_test_digit = Parallel(n_jobs=4)(delayed(node)(arg) for arg in X_test_digit)
+    X_train_digit = Parallel(n_jobs=num_cores)(delayed(node)(arg) for arg in X_train_digit)
+    X_test_digit = Parallel(n_jobs=num_cores)(delayed(node)(arg) for arg in X_test_digit)
     # Creating base neural network
     model = keras.Sequential([
         layers.Flatten(),

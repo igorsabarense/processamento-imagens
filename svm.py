@@ -13,19 +13,22 @@ from sklearn.metrics import confusion_matrix
 from sklearn.svm import SVC
 from processing_utils import node
 from joblib import Parallel, delayed
+import multiprocessing
+
 
 
 def run_support_vector_machine_model():
     # Digit MNIST dataset
     (X_train_digit, y_train_digit), (X_test_digit, y_test_digit) = mnist.load_data()
     num_tests = 60000
+    num_cores = multiprocessing.cpu_count()
     X_train_digit = X_train_digit[:num_tests]  # fewer samples
     X_test_digit = X_test_digit
     y_train_digit = y_train_digit[:num_tests]
     y_test_digit = y_test_digit
     print("turning dataset into image projections")
-    X_train_digit = Parallel(n_jobs=4)(delayed(node)(arg) for arg in X_train_digit)
-    X_test_digit = Parallel(n_jobs=4)(delayed(node)(arg) for arg in X_test_digit)
+    X_train_digit = Parallel(n_jobs=num_cores)(delayed(node)(arg) for arg in X_train_digit)
+    X_test_digit = Parallel(n_jobs=num_cores)(delayed(node)(arg) for arg in X_test_digit)
     X_train_digit_flattened = np.array(X_train_digit)
     X_test_digit_flattened = np.array(X_test_digit)
     # specify model
