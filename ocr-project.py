@@ -11,7 +11,9 @@ from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
     qApp, QFileDialog
+from keras.utils.np_utils import normalize
 from matplotlib import pyplot as plt
+from scipy.interpolate import interpolate
 from scipy.ndimage import interpolation
 from tensorflow.keras.utils import to_categorical
 from imutils import contours
@@ -37,40 +39,22 @@ y_test_digit = to_categorical(y_test_digit)
 
 def get_vertical_projection(img):
     thresh = cv2.threshold(img.copy(), 130, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    vertical_projection = np.sum(thresh, axis=0)
 
-    (h, w) = thresh.shape  # Return height and width
-    a = [0 for z in range(0, w)]
-    # Record the peaks of each column
-    for j in range(0, w):  # Traversing a column
-        for i in range(0, h):  # Traverse a row
-            if thresh[i, j] == 0:  # If you change the point to black
-                a[j] += 1  # Counter of this column plus one count
-                thresh[i, j] = 255  # Turn it white after recording
-
-    for j in range(0, w):  # Traverse each column
-        for i in range((h - a[j]),
-                       h):  # Start from the top point of the column that should be blackened to the bottom
-            thresh[i, j] = 0  # Blackening
-
-    return thresh
+    return vertical_projection.tolist()
 
 
 def get_horizontal_projection(img):
     thresh = cv2.threshold(img.copy(), 130, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-    (h, w) = thresh.shape  # Return height and width
-    a = [0 for z in range(0, w)]
+    horizontal_projection = np.sum(thresh, axis=1)
 
-    for j in range(0, h):
-        for i in range(0, w):
-            if thresh[j, i] == 0:
-                a[j] += 1
-                thresh[j, i] = 255
+    return horizontal_projection.tolist()
 
-    for j in range(0, h):
-        for i in range(0, a[j]):
-            thresh[j, i] = 0
 
-    return thresh
+def interpolate_projection(projection):
+    f = interpolate.interp1d(np.arange(0, len(projection)), projection)
+    my_stretched_alfa = f(np.linspace(0.0, len(projection) - 1, 32))
+    return my_stretched_alfa.tolist()
 
 
 def find_white_background(imgArr, threshold=0.1815):
@@ -324,19 +308,14 @@ class App(QMainWindow):
     def artificial_neural_network(self):
         self.draw_prediction("neural_network", "Rede Neural Artificial", True)
 
-
-    #desenha na tela o resultado da IA1
+    # desenha na tela o resultado da IA1
     def draw_prediction(self, model_name, title, is_ann):
-        #carrega o modelo svm ou rede neural
+        # carrega o modelo svm ou rede neural
         model = tf.keras.models.load_model(model_name) if is_ann else pickle.load(open(model_name, 'rb'))
-        #projecoes
+        # projecoes
         digits = np.array(self.projections)
-        #regiao de interesse
+        # regiao de interesse
         rois = self.roi_digits
-
-        # utiliza o modelo para descobrir quais são os digitos de acordo com o vetor de projecoes
-        if not is_ann:
-            digits = digits.reshape(digits.shape[0], 28 * 28)
 
         prediction = model.predict(digits)
 
@@ -379,16 +358,17 @@ class App(QMainWindow):
         image = self.cv_image.copy()  # cria copia da imagem na tela
         white_background = cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU if find_white_background(
             image) else cv2.THRESH_BINARY + cv2.THRESH_OTSU  # de acordo com o fundo da imagem, cria um metodo de segmentação diferente
-                                                             # fundo preto ou branco
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)       # transforma em escala de cinza
-        blur = cv2.GaussianBlur(gray, (5, 5), 0)             # embaça para tirar ruído
-        thresh = cv2.threshold(blur, 0, 255, white_background)[1]   #limiarização da imagem
+        # fundo preto ou branco
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # transforma em escala de cinza
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)  # embaça para tirar ruído
+        thresh = cv2.threshold(blur, 0, 255, white_background)[1]  # limiarização da imagem
 
         # find contours in the thresholded image, then initialize the
         # digit contours lists
-        cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) #acha os contornos dos digitos na imagem
+        cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
+                                cv2.CHAIN_APPROX_SIMPLE)  # acha os contornos dos digitos na imagem
         cnts = cnts[0] if len(cnts) == 2 else cnts[1]
-        cnts, _ = contours.sort_contours(cnts, method="left-to-right") #ordena os contornos da esquerda para direita
+        cnts, _ = contours.sort_contours(cnts, method="left-to-right")  # ordena os contornos da esquerda para direita
 
         i = 0
 
@@ -400,21 +380,22 @@ class App(QMainWindow):
             if w >= 5 and h >= 10:
                 # Taking ROI of the cotour
                 # MNIST 20x20 centered in a bounding box 28x28
-                roi = thresh.copy()[y:y + h, x:x + w]      #pega a regiao de interesse da imagem
-                roi = deskew(roi)                          # alinha a imagem para ficar reta
-                roi = resize_image(roi)                    # ajusta o tamanho da imagem para 18,18 para depois ficar mais proxima ao MNIST
-                roi = np.pad(roi, ((5, 5), (5, 5)), "constant", constant_values=0)  # centraliza a imagem assim transformando em 28,28
+                roi = thresh.copy()[y:y + h, x:x + w]  # pega a regiao de interesse da imagem
+                roi = deskew(roi)  # alinha a imagem para ficar reta
+                roi = resize_image(roi)  # ajusta o tamanho da imagem para 18,18 para depois ficar mais proxima ao MNIST
+                roi = np.pad(roi, ((5, 5), (5, 5)), "constant",
+                             constant_values=0)  # centraliza a imagem assim transformando em 28,28
 
-                cv2.rectangle(self.cv_image, (x, y), (x + w, y + h), (0, 255, 0), 2)    # cria um retangulo verde demonstrando os digitos
+                cv2.rectangle(self.cv_image, (x, y), (x + w, y + h), (0, 255, 0),
+                              2)  # cria um retangulo verde demonstrando os digitos
 
-                v_proj = get_vertical_projection(roi)           #cria projecao vertical
-                h_proj = get_horizontal_projection(roi)         #cria projecao horizontal
-                vh_proj = v_proj + h_proj                       #concatena as duas projecoes
+                v_proj = get_vertical_projection(roi)  # cria projecao vertical
+                h_proj = get_horizontal_projection(roi)  # cria projecao horizontal
+                vh_proj = interpolate_projection(v_proj) + interpolate_projection(h_proj)  # concatena as duas projecoes
+                vh_proj = normalize(vh_proj, axis=0)[0]
 
-                reshaped_projection = np.array(vh_proj).reshape(1, 28, 28)  #reshape para se adequar ao modelo
-
-                self.roi_digits.append(roi)                        # adiciona o digito a um vetor de regioes de interesse
-                self.projections.append(reshaped_projection)       # adiciona a projecao concatenada a um vetor
+                self.roi_digits.append(roi)  # adiciona o digito a um vetor de regioes de interesse
+                self.projections.append(vh_proj)  # adiciona a projecao concatenada a um vetor
                 i = i + 1
 
 
