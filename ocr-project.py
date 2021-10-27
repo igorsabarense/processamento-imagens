@@ -112,6 +112,16 @@ class App(QMainWindow):
         ptr.setsize(form_image.byteCount())
         return np.array(ptr).reshape(height, width, 4)
 
+    def set_canvas_image(self, qimage):
+        self.canvas_image.setPixmap(QPixmap.fromImage(qimage))
+        self.scale = 1.0
+        self.scroll_area.setVisible(True)
+        self.act_print.setEnabled(True)
+        self.fit_canvas.setEnabled(False)
+        self.update_canvas()
+        if not self.fit_canvas.isChecked():
+            self.canvas_image.adjustSize()
+
     def act_print(self):
         dialog = QPrintDialog(self.impressora, self)
         if dialog.exec_():
@@ -204,7 +214,6 @@ class App(QMainWindow):
         self.zoom_in.setEnabled(self.scale < 3.0)
         self.zoom_out.setEnabled(self.scale > 0.333)
 
-
     """ 
          Above this line, the methods are interface default methods.
          Below this line , the methods are used to create the OCR.
@@ -236,7 +245,6 @@ class App(QMainWindow):
 
     # desenha na tela o resultado da IA1
     def draw_prediction(self, model, title, is_ann):
-
         # projecoes
         digits = np.array(self.projections)
         # regiao de interesse
@@ -266,16 +274,7 @@ class App(QMainWindow):
         self.cv_image = image_from_plot
         image = self.return_canvas_image()
 
-        self.canvas_image.setPixmap(QPixmap.fromImage(image))
-        self.scale = 1.0
-
-        self.scroll_area.setVisible(True)
-        self.act_print.setEnabled(True)
-        self.fit_canvas.setEnabled(False)
-        self.update_canvas()
-
-        if not self.fit_canvas.isChecked():
-            self.canvas_image.adjustSize()
+        self.set_canvas_image(image)
 
     def process_image(self):
         self.roi_digits = []
