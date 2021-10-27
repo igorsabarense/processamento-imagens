@@ -303,15 +303,16 @@ class App(QMainWindow):
         self.zoom_out.setEnabled(self.scale > 0.333)
 
     def svm(self):
-        self.draw_prediction("svm_model.sav", "SVM ( Support Vector Machine )", False)
+        # carrega o modelo svm
+        self.draw_prediction(pickle.load(open("svm_model.sav", 'rb')), "SVM ( Support Vector Machine )", False)
 
     def artificial_neural_network(self):
-        self.draw_prediction("neural_network", "Rede Neural Artificial", True)
+        # carrega o modelo rede neural
+        self.draw_prediction(tf.keras.models.load_model("neural_network"), "Rede Neural Artificial", True)
 
     # desenha na tela o resultado da IA1
-    def draw_prediction(self, model_name, title, is_ann):
-        # carrega o modelo svm ou rede neural
-        model = tf.keras.models.load_model(model_name) if is_ann else pickle.load(open(model_name, 'rb'))
+    def draw_prediction(self, model, title, is_ann):
+
         # projecoes
         digits = np.array(self.projections)
         # regiao de interesse
