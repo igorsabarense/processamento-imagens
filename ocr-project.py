@@ -184,7 +184,7 @@ class App(QMainWindow):
 
         # Menu Processamento
 
-        self.menu_processing = QMenu("&Processamento", self)
+        self.menu_processing = QMenu("&Classificadores", self)
         self.menu_processing.addAction(self.ann)
         self.menu_processing.addAction(self.svm)
         # Help menu
