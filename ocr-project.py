@@ -1,132 +1,37 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+""" __author__ = "Bruno Rodrigues, Igor Sabarense e Raphael Nogueira"
+    __date__ = "2021"
+"""
+
 import pickle
+
 import cv2
 import numpy as np
 import tensorflow as tf
-from keras.datasets import mnist
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
     qApp, QFileDialog
+from imutils import contours
+from keras.datasets import mnist
 from keras.utils.np_utils import normalize
 from matplotlib import pyplot as plt
 from scipy.interpolate import interpolate
-from scipy.ndimage import interpolation
 from tensorflow.keras.utils import to_categorical
-from imutils import contours
-
-import pydot
-import seaborn as sns
-
-# Evaluation library
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import accuracy_score
-from sklearn.model_selection import GridSearchCV
 
 # Digit MNIST dataset
+from processing_utils import deskew, getVerticalProjectionProfile, getHorizontalProjectionProfile, \
+    interpolate_projection, find_white_background, resize_image
+
+# Evaluation library
+
 (X_train_digit, y_train_digit), (X_test_digit, y_test_digit) = mnist.load_data()
 # Encoding Digit MNIST Labels
 y_train_digit = to_categorical(y_train_digit)
 y_test_digit = to_categorical(y_test_digit)
-
-""" __author__ = "Bruno Rodrigues, Igor Sabarense e Raphael Nogueira"
-    __date__ = "2021"
-"""
-
-
-def get_vertical_projection(img):
-    thresh = cv2.threshold(img.copy(), 130, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-    vertical_projection = np.sum(thresh, axis=0)
-
-    return vertical_projection.tolist()
-
-
-def get_horizontal_projection(img):
-    thresh = cv2.threshold(img.copy(), 130, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-    horizontal_projection = np.sum(thresh, axis=1)
-
-    return horizontal_projection.tolist()
-
-
-def interpolate_projection(projection):
-    f = interpolate.interp1d(np.arange(0, len(projection)), projection)
-    my_stretched_alfa = f(np.linspace(0.0, len(projection) - 1, 32))
-    return my_stretched_alfa.tolist()
-
-
-def find_white_background(imgArr, threshold=0.1815):
-    """remove images with transparent or white background"""
-    background = np.array([255, 255, 255])
-    percent = (imgArr == background).sum() / imgArr.size
-    if percent >= threshold or percent == 0 or percent <= 0.001:
-        return True
-    else:
-        return False
-
-
-def update_scrolling_area(scroll_area, scale):
-    scroll_area.setValue(int(scale * scroll_area.value()
-                             + ((scale - 1) * scroll_area.pageStep() / 2)))
-
-
-def sort_contours(cnts):
-    # initialize the reverse flag and sort index
-    i = 0
-    boundingBoxes = [cv2.boundingRect(c) for c in cnts]
-    (cnts, boundingBoxes) = zip(*sorted(zip(cnts, boundingBoxes),
-                                        key=lambda b: b[1][i]))
-
-    return cnts
-
-
-def resize_image(img, size=(18, 18)):
-    h, w = img.shape[:2]
-    c = img.shape[2] if len(img.shape) > 2 else 1
-
-    if h == w:
-        return cv2.resize(img, size, cv2.INTER_AREA)
-
-    dif = h if h > w else w
-
-    interpolation = cv2.INTER_AREA if dif > (size[0] + size[1]) // 2 else cv2.INTER_CUBIC
-
-    x_pos = (dif - w) // 2
-    y_pos = (dif - h) // 2
-
-    if len(img.shape) == 2:
-        mask = np.zeros((dif, dif), dtype=img.dtype)
-        mask[y_pos:y_pos + h, x_pos:x_pos + w] = img[:h, :w]
-    else:
-        mask = np.zeros((dif, dif, c), dtype=img.dtype)
-        mask[y_pos:y_pos + h, x_pos:x_pos + w, :] = img[:h, :w, :]
-
-    return cv2.resize(mask, size, interpolation)
-
-
-def moments(image):
-    c0, c1 = np.mgrid[:image.shape[0], :image.shape[1]]  # A trick in numPy to create a mesh grid
-    totalImage = np.sum(image)  # sum of pixels
-    m0 = np.sum(c0 * image) / totalImage  # mu_x
-    m1 = np.sum(c1 * image) / totalImage  # mu_y
-    m00 = np.sum((c0 - m0) ** 2 * image) / totalImage  # var(x)
-    m11 = np.sum((c1 - m1) ** 2 * image) / totalImage  # var(y)
-    m01 = np.sum((c0 - m0) * (c1 - m1) * image) / totalImage  # covariance(x,y)
-    mu_vector = np.array([m0, m1])  # Notice that these are \mu_x, \mu_y respectively
-    covariance_matrix = np.array([[m00, m01], [m01, m11]])  # Do you see a similarity between the covariance matrix
-    return mu_vector, covariance_matrix
-
-
-def deskew(image):
-    c, v = moments(image)
-    alpha = v[0, 1] / v[0, 0]
-    affine = np.array([[1, 0], [alpha, 1]])
-    ocenter = np.array(image.shape) / 2.0
-    offset = c - np.dot(affine, ocenter)
-    return interpolation.affine_transform(image, affine, offset=offset)
-
 
 class App(QMainWindow):
     def __init__(self):
@@ -186,6 +91,10 @@ class App(QMainWindow):
 
             if not self.fit_canvas.isChecked():
                 self.canvas_image.adjustSize()
+
+    def update_scrolling_area(self, scroll_area, scale):
+        scroll_area.setValue(int(scale * scroll_area.value()
+                                 + ((scale - 1) * scroll_area.pageStep() / 2)))
 
     def return_canvas_image(self):
         if self.cv_image is not None:
@@ -296,11 +205,16 @@ class App(QMainWindow):
         self.scale *= scale
         self.canvas_image.resize(self.scale * self.canvas_image.pixmap().size())
 
-        update_scrolling_area(self.scroll_area.horizontalScrollBar(), scale)
-        update_scrolling_area(self.scroll_area.verticalScrollBar(), scale)
+        self.update_scrolling_area(self.scroll_area.horizontalScrollBar(), scale)
+        self.update_scrolling_area(self.scroll_area.verticalScrollBar(), scale)
 
         self.zoom_in.setEnabled(self.scale < 3.0)
         self.zoom_out.setEnabled(self.scale > 0.333)
+
+    """ 
+         Above this line, the methods are interface default methods.
+         Below this line , the methods are used to create the OCR.
+    """
 
     def svm(self):
         # carrega o modelo svm
@@ -390,8 +304,8 @@ class App(QMainWindow):
                 cv2.rectangle(self.cv_image, (x, y), (x + w, y + h), (0, 255, 0),
                               2)  # cria um retangulo verde demonstrando os digitos
 
-                v_proj = get_vertical_projection(roi)  # cria projecao vertical
-                h_proj = get_horizontal_projection(roi)  # cria projecao horizontal
+                v_proj = getVerticalProjectionProfile(roi)  # cria projecao vertical
+                h_proj = getHorizontalProjectionProfile(roi)  # cria projecao horizontal
                 vh_proj = interpolate_projection(v_proj) + interpolate_projection(h_proj)  # concatena as duas projecoes
                 vh_proj = normalize(vh_proj, axis=0)[0]
 

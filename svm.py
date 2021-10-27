@@ -1,20 +1,22 @@
 # -*- coding: utf-8 -*-
+""" __author__ = "Bruno Rodrigues, Igor Sabarense e Raphael Nogueira"
+    __date__ = "2021"
+"""
+
+
 import pickle
 import time
-import mnist
-import cv2
+
 # Basic Libraries
 import numpy as np
-from keras.datasets import mnist
-from keras.utils.np_utils import normalize
-from sklearn.model_selection import KFold, GridSearchCV
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import LinearSVC, SVC
-from sklearn.metrics import confusion_matrix, classification_report
-from sklearn.metrics import accuracy_score
 import seaborn as sns
+from keras.datasets import mnist
 from matplotlib import pyplot as plt
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix
+from sklearn.svm import SVC
+from processing_utils import node
+from joblib import Parallel, delayed
 
 # Digit MNIST dataset
 (X_train_digit, y_train_digit), (X_test_digit, y_test_digit) = mnist.load_data()
@@ -26,39 +28,6 @@ X_test_digit = X_test_digit
 
 y_train_digit = y_train_digit[:num_tests]
 y_test_digit = y_test_digit
-
-
-def getHorizontalProjectionProfile(image):
-    horizontal_projection = np.sum(image, axis=1)
-
-    return horizontal_projection.tolist()
-
-
-def getVerticalProjectionProfile(image):
-    vertical_projection = np.sum(image, axis=0)
-
-    return vertical_projection.tolist()
-
-
-from joblib import Parallel, delayed
-
-from scipy import interpolate
-
-
-def node(arg):
-    vertical_proj = getVerticalProjectionProfile(arg)
-    horizontal_proj = getHorizontalProjectionProfile(arg)
-
-    vh = interpolate_projection(vertical_proj) + interpolate_projection(horizontal_proj)
-
-    return normalize(vh, axis=0)[0]
-
-
-def interpolate_projection(projection):
-    f = interpolate.interp1d(np.arange(0, len(projection)), projection)
-    my_stretched_alfa = f(np.linspace(0.0, len(projection) - 1, 32))
-    return my_stretched_alfa.tolist()
-
 
 print("turning dataset into image projections")
 
