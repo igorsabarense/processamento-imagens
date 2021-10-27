@@ -27,15 +27,14 @@ X_test_digit = X_test_digit
 y_train_digit = y_train_digit[:num_tests]
 y_test_digit = y_test_digit
 
-def getHorizontalProjectionProfile(image):
 
+def getHorizontalProjectionProfile(image):
     horizontal_projection = np.sum(image, axis=1)
 
     return horizontal_projection.tolist()
 
 
 def getVerticalProjectionProfile(image):
-
     vertical_projection = np.sum(image, axis=0)
 
     return vertical_projection.tolist()
@@ -45,8 +44,8 @@ from joblib import Parallel, delayed
 
 from scipy import interpolate
 
-def node(arg):
 
+def node(arg):
     vertical_proj = getVerticalProjectionProfile(arg)
     horizontal_proj = getHorizontalProjectionProfile(arg)
 
@@ -60,6 +59,7 @@ def interpolate_projection(projection):
     my_stretched_alfa = f(np.linspace(0.0, len(projection) - 1, 32))
     return my_stretched_alfa.tolist()
 
+
 print("turning dataset into image projections")
 
 X_train_digit = Parallel(n_jobs=4)(delayed(node)(arg) for arg in X_train_digit)
@@ -69,7 +69,7 @@ X_train_digit_flattened = np.array(X_train_digit)
 X_test_digit_flattened = np.array(X_test_digit)
 
 # specify model
-clf = SVC(C=0.1, gamma=1, kernel='rbf', verbose=True)
+clf = SVC()
 
 start = time.time()
 print("start training")
