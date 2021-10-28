@@ -115,7 +115,6 @@ class App(QMainWindow):
         self.canvas_image.setPixmap(QPixmap.fromImage(qimage))
         self.scale = 1.0
         self.scroll_area.setVisible(True)
-        self.act_print.setEnabled(True)
         self.fit_canvas.setEnabled(False)
         self.update_canvas()
         if not self.fit_canvas.isChecked():
