@@ -78,7 +78,6 @@ class App(QMainWindow):
             self.scale = 1.0
 
             self.scroll_area.setVisible(True)
-            self.act_print.setEnabled(True)
             self.fit_canvas.setEnabled(True)
             self.update_canvas()
 
@@ -122,16 +121,7 @@ class App(QMainWindow):
         if not self.fit_canvas.isChecked():
             self.canvas_image.adjustSize()
 
-    def act_print(self):
-        dialog = QPrintDialog(self.impressora, self)
-        if dialog.exec_():
-            printed_canvas = QPainter(self.impressora)
-            rect = printed_canvas.viewport()
-            canvas_size = self.canvas_image.pixmap().size()
-            canvas_size.scale(rect.size(), Qt.KeepAspectRatio)
-            printed_canvas.setViewport(rect.x(), rect.y(), canvas_size.width(), canvas_size.height())
-            printed_canvas.setWindow(self.canvas_image.pixmap().rect())
-            printed_canvas.drawPixmap(0, 0, self.canvas_image.pixmap())
+
 
     def zoomIn(self):
         self.scale_canvas_image(1.25)
@@ -153,7 +143,6 @@ class App(QMainWindow):
 
     def canvas_actions(self):
         self.open_file = QAction("&Abrir...", self, shortcut="Ctrl+O", triggered=self.open_file)
-        self.act_print = QAction("&Imprimir...", self, shortcut="Ctrl+P", enabled=False, triggered=self.act_print)
         self.exit = QAction("&Sair", self, shortcut="Ctrl+Q", triggered=self.close)
         self.zoom_in = QAction("Zoom &In (25%)", self, shortcut="Ctrl++", enabled=False, triggered=self.zoomIn)
         self.zoom_out = QAction("Zoom &Out (25%)", self, shortcut="Ctrl+-", enabled=False, triggered=self.zoomOut)
@@ -169,7 +158,6 @@ class App(QMainWindow):
         # Menu Arquivo
         self.menu_file = QMenu("&Arquivo", self)
         self.menu_file.addAction(self.open_file)
-        self.menu_file.addAction(self.act_print)
         self.menu_file.addSeparator()
         self.menu_file.addAction(self.exit)
 
