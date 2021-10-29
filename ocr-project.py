@@ -262,6 +262,23 @@ class App(QMainWindow):
 
         self.set_canvas_image(image)
 
+    """Passos de processamento:
+     01- transforma em escala de cinza
+     02- calcula a porcentagem de branco no fundo da imagem para fazer a limiarização correta ( inverte o fundo para preto ou não )
+     04- usa o filtro Gaussiano para reduzir o ruído na imagem
+     05- limiariza utilizando a limiarização binária + algoritmo de OTSU
+     06- Acha os contornos da imagem (area que não é fundo)
+     07- Organiza os contornos da esquerda pra direita
+     08- Realiza o corte para obter a região de interesse ( dígito )
+     09- Alinha o digito para que fique o mais reto possivel
+     10- ajusta o tamanho para se aproximar da base de dígitos MNIST 
+     11- ajusta o espacamento para poder centralizar o digito 
+     12- contorna os digitos com uma caixa retangular para mostrar ao usuário a detecção dos mesmos
+     13- pega a projecão vertical e horizontal do digito
+     14- interpolam as projecoes
+     15- concatenam as projecoes
+     16- normaliza a projecao concatenada ( será utilizada como teste para nosso classificador ) 
+    """
     def process_image(self):
         self.roi_digits = []
         self.projections = []
@@ -270,7 +287,7 @@ class App(QMainWindow):
             image) else cv2.THRESH_BINARY + cv2.THRESH_OTSU  # de acordo com o fundo da imagem, cria um metodo de segmentação diferente
         # fundo preto ou branco
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # transforma em escala de cinza
-        blur = cv2.GaussianBlur(gray, (5, 5), 0)  # embaça para tirar ruído
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)  # reduzir ruído
         thresh = cv2.threshold(blur, 0, 255, white_background)[1]  # limiarização da imagem
 
         # find contours in the thresholded image, then initialize the
