@@ -305,8 +305,6 @@ class App(QMainWindow):
             (x, y, w, h) = cv2.boundingRect(c)
 
             if w >= 5 and h >= 10:
-                # Taking ROI of the cotour
-                # MNIST 20x20 centered in a bounding box 28x28
                 roi = thresh.copy()[y:y + h, x:x + w]  # pega a regiao de interesse da imagem
                 roi = deskew(roi)  # alinha a imagem para ficar reta
                 roi = resize_image(roi)  # ajusta o tamanho da imagem para 18,18 para depois ficar mais proxima ao MNIST
