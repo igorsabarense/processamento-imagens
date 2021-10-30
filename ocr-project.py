@@ -266,7 +266,7 @@ class App(QMainWindow):
         Passos de processamento:
              01- transforma em escala de cinza
              02- calcula a porcentagem de branco no fundo da imagem para fazer a limiarização correta ( inverte o fundo para preto ou não )
-             04- usa o filtro Gaussiano para reduzir o ruído na imagem
+             04- usa o filtro Gaussiano para reduzir o ruído na imagem  
              05- limiariza utilizando a limiarização binária + algoritmo de OTSU
              06- Acha os contornos da imagem (area que não é fundo)
              07- Organiza os contornos da esquerda pra direita
@@ -312,8 +312,7 @@ class App(QMainWindow):
                 roi = np.pad(roi, ((5, 5), (5, 5)), "constant",
                              constant_values=0)  # centraliza a imagem assim transformando em 28,28
 
-                cv2.rectangle(self.cv_image, (x, y), (x + w, y + h), (0, 255, 0),
-                              2)  # cria um retangulo verde demonstrando os digitos
+                cv2.rectangle(self.cv_image, (x, y), (x + w, y + h), (189, 37, 164), 2)  # cria um retangulo verde demonstrando os digitos
 
                 v_proj = getVerticalProjectionProfile(roi)  # cria projecao vertical
                 h_proj = getHorizontalProjectionProfile(roi)  # cria projecao horizontal
