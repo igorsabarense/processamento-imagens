@@ -120,8 +120,6 @@ class App(QMainWindow):
         if not self.fit_canvas.isChecked():
             self.canvas_image.adjustSize()
 
-
-
     def zoomIn(self):
         self.scale_canvas_image(1.25)
 
@@ -207,7 +205,8 @@ class App(QMainWindow):
     """
 
     def svm(self):
-        # carrega o modelo svm
+        """ Carrega o modelo da Support Vector Machine ( svm ) , caso o modelo não exista, cria durante o tempo de execução.
+        """
         model = None
         try:
             model = pickle.load(open("svm_model.sav", 'rb'))
@@ -218,7 +217,8 @@ class App(QMainWindow):
             self.draw_prediction(model, "SVM ( Support Vector Machine )", False)
 
     def artificial_neural_network(self):
-        # carrega o modelo rede neural
+        """ Carrega o modelo da rede neural artificial ( ann ) , caso o modelo não exista, cria durante o tempo de execução.
+        """
         model = None
         try:
             model = tf.keras.models.load_model("neural_network")
@@ -228,13 +228,15 @@ class App(QMainWindow):
         finally:
             self.draw_prediction(model, "Rede Neural Artificial", True)
 
-
-
-    # desenha na tela o resultado da IA1
     def draw_prediction(self, model, title, is_ann):
-        # projecoes
+        """ Desenha na tela a região de interesse encontrada e logo abaixo a classificação feita pela Rede Neural ou SVM
+            :param model: model -> SVM ou ANN
+            :param title:  string
+            :param is_ann: bool
+        """
+        # projeções
         digits = np.array(self.projections)
-        # regiao de interesse
+        # regiões de interesse
         rois = self.roi_digits
 
         prediction = model.predict(digits)
@@ -262,25 +264,26 @@ class App(QMainWindow):
 
         self.set_canvas_image(image)
 
-    """
-        Passos de processamento:
-             01- transforma em escala de cinza
-             02- calcula a porcentagem de branco no fundo da imagem para fazer a limiarização correta ( inverte o fundo para preto ou não )
-             04- usa o filtro Gaussiano para reduzir o ruído na imagem  
-             05- limiariza utilizando a limiarização binária + algoritmo de OTSU
-             06- Acha os contornos da imagem (area que não é fundo)
-             07- Organiza os contornos da esquerda pra direita
-             08- Realiza o corte para obter a região de interesse ( dígito )
-             09- Alinha o digito para que fique o mais reto possivel
-             10- ajusta o tamanho para se aproximar da base de dígitos MNIST 
-             11- ajusta o espacamento para poder centralizar o digito 
-             12- contorna os digitos com uma caixa retangular para mostrar ao usuário a detecção dos mesmos
-             13- pega a projecão vertical e horizontal do digito
-             14- interpolam as projecoes
-             15- concatenam as projecoes
-             16- normaliza a projecao concatenada ( será utilizada como teste para nosso classificador ) 
-    """
     def process_image(self):
+        """ Processa a imagem e aloca as regiões de interesse a um vetor que será utilizado pelo modelo classificador.
+        """
+        #    Passos de processamento:
+        #         01- transforma em escala de cinza
+        #         02- calcula a porcentagem de branco no fundo da imagem para fazer a limiarização correta ( inverte o fundo para preto ou não )
+        #         04- usa o filtro Gaussiano para reduzir o ruído na imagem
+        #         05- limiariza utilizando a limiarização binária + algoritmo de OTSU
+        #         06- Acha os contornos da imagem (area que não é fundo)
+        #         07- Organiza os contornos da esquerda pra direita
+        #         08- Realiza o corte para obter a região de interesse ( dígito )
+        #         09- Alinha o digito para que fique o mais reto possivel
+        #         10- ajusta o tamanho para se aproximar da base de dígitos MNIST
+        #         11- ajusta o espacamento para poder centralizar o digito
+        #         12- contorna os digitos com uma caixa retangular para mostrar ao usuário a detecção dos mesmos
+        #         13- pega a projecão vertical e horizontal do digito
+        #         14- interpolam as projecoes
+        #         15- concatenam as projecoes
+        #         16- normaliza a projecao concatenada ( será utilizada como teste para nosso classificador )
+
         self.roi_digits = []
         self.projections = []
         image = self.cv_image.copy()  # cria copia da imagem na tela
@@ -291,8 +294,6 @@ class App(QMainWindow):
         blur = cv2.GaussianBlur(gray, (5, 5), 0)  # reduzir ruído
         thresh = cv2.threshold(blur, 0, 255, white_background)[1]  # limiarização da imagem
 
-        # find contours in the thresholded image, then initialize the
-        # digit contours lists
         cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
                                 cv2.CHAIN_APPROX_SIMPLE)  # acha os contornos dos digitos na imagem
         cnts = cnts[0] if len(cnts) == 2 else cnts[1]
@@ -300,9 +301,7 @@ class App(QMainWindow):
 
         i = 0
 
-        # loop over the digit area candidates
         for c in cnts:
-            # compute the bounding box of the contour
             (x, y, w, h) = cv2.boundingRect(c)
 
             if w >= 5 and h >= 10:
@@ -312,12 +311,13 @@ class App(QMainWindow):
                 roi = np.pad(roi, ((5, 5), (5, 5)), "constant",
                              constant_values=0)  # centraliza a imagem assim transformando em 28,28
 
-                cv2.rectangle(self.cv_image, (x, y), (x + w, y + h), (189, 37, 164), 2)  # cria um retangulo verde demonstrando os digitos
+                cv2.rectangle(self.cv_image, (x, y), (x + w, y + h), (189, 37, 164),
+                              2)  # cria um retangulo demonstrando os digitos
 
                 v_proj = getVerticalProjectionProfile(roi)  # cria projecao vertical
                 h_proj = getHorizontalProjectionProfile(roi)  # cria projecao horizontal
                 vh_proj = interpolate_projection(v_proj) + interpolate_projection(h_proj)  # concatena as duas projecoes
-                vh_proj = normalize(vh_proj, axis=0)[0]
+                vh_proj = normalize(vh_proj, axis=0)[0]  # normaliza a projecao concatenada
 
                 self.roi_digits.append(roi)  # adiciona o digito a um vetor de regioes de interesse
                 self.projections.append(vh_proj)  # adiciona a projecao concatenada a um vetor

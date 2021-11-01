@@ -9,7 +9,12 @@ from scipy.ndimage import interpolation
 
 
 def find_white_background(imgArr, threshold=0.1815):
-    """remove images with transparent or white background"""
+    """ Retorna a cor do fundo da imagem ( preto ou branco )
+    :param imgArr: npArray
+    :param threshold:  float
+    :returns: True or False: bool
+    """
+
     background = np.array([255, 255, 255])
     percent = (imgArr == background).sum() / imgArr.size
     if percent >= threshold or percent == 0 or percent <= 0.001:
@@ -19,7 +24,10 @@ def find_white_background(imgArr, threshold=0.1815):
 
 
 def sort_contours(contours):
-    # initialize the reverse flag and sort index
+    """ Retorna os contornos encontrados de forma ordenada da esquerda para direita
+    :param contours: cv2.Countours
+    :returns: countours: cv2.Countours
+    """
     i = 0
     boundingBoxes = [cv2.boundingRect(c) for c in contours]
     (contours, boundingBoxes) = zip(*sorted(zip(contours, boundingBoxes),
@@ -29,6 +37,12 @@ def sort_contours(contours):
 
 
 def resize_image(img, size=(18, 18)):
+    """  Retorna a imagem reajustada para o valor escolhido , caso não passado, o valor default é 18,18
+    :param img: npArray - imagem a ser ajustada o tamanho
+    :param size: tuple(x,y)- tamanho que a imagem deve ser ajustada ( tupla )
+    :returns: img np.array
+    """
+
     h, w = img.shape[:2]
     c = img.shape[2] if len(img.shape) > 2 else 1
 
@@ -52,23 +66,37 @@ def resize_image(img, size=(18, 18)):
     return cv2.resize(mask, size, interpolation_)
 
 
-def interpolate_projection(projection):
+def interpolate_projection(projection, size=32):
+    """  Retorna a projeção interpolada para o valor escolhido, caso não especificado, o valor default é 32.
+        :param size: tamanho a ser interpolado
+        :param projection : lista
+    """
     interpol_func = interpolate.interp1d(np.arange(0, len(projection)), projection)
-    stretch_array = interpol_func(np.linspace(0.0, len(projection) - 1, 32))
+    stretch_array = interpol_func(np.linspace(0.0, len(projection) - 1, size))
     return stretch_array.tolist()
 
 
 def getHorizontalProjectionProfile(image):
+    """  Retorna a projeção horizontal somando os valores no eixo x
+           :param image : npArray
+    """
     horizontal_projection = np.sum(image, axis=1)
     return horizontal_projection.tolist()
 
 
 def getVerticalProjectionProfile(image):
+    """  Retorna a projeção vertical somando os valores no eixo y
+          :param image : npArray
+    """
     vertical_projection = np.sum(image, axis=0)
     return vertical_projection.tolist()
 
 
 def moments(image):
+    """  Retorna a matriz de covariancia
+              :param image : npArray
+              :return mu_vector, covariance_matrix
+    """
     c0, c1 = np.mgrid[:image.shape[0], :image.shape[1]]  # A trick in numPy to create a mesh grid
     totalImage = np.sum(image)  # sum of pixels
     m0 = np.sum(c0 * image) / totalImage  # mu_x
@@ -82,6 +110,10 @@ def moments(image):
 
 
 def deskew(image):
+    """  Retorna a imagem alinhada
+                  :param image : npArray
+                  :returns image
+    """
     c, v = moments(image)
     alpha = v[0, 1] / v[0, 0]
     affine = np.array([[1, 0], [alpha, 1]])
@@ -91,6 +123,10 @@ def deskew(image):
 
 
 def process_projection_profile(arg):
+    """  Retorna a projeção concatenada ( vertical / horizontal ) e normalizada da imagem
+         :param arg : npArray -> imagem a ser transformada em sua projeção.
+         :return vh : npArray -> projecão concatenada.
+    """
     img = deskew(arg.copy())
     vertical_proj = getVerticalProjectionProfile(img.copy())
     horizontal_proj = getHorizontalProjectionProfile(img.copy())
