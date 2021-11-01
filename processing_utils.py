@@ -93,7 +93,7 @@ def getVerticalProjectionProfile(image):
 
 
 def moments(image):
-    """  Retorna a matriz de covariancia
+    """  Retorna a matriz de covariancia utilizada pelo metodo deskew
               :param image : npArray
               :return mu_vector, covariance_matrix
     """
