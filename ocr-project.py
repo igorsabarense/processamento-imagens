@@ -6,6 +6,8 @@
 """
 
 import pickle
+import time
+
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -205,6 +207,7 @@ class App(QMainWindow):
     """
 
     def svm(self):
+        start_timer = time.time()
         """ Carrega o modelo da Support Vector Machine ( svm ) , caso o modelo não exista, cria durante o tempo de execução.
         """
         model = None
@@ -214,9 +217,10 @@ class App(QMainWindow):
             svm.run_support_vector_machine_model()
             model = pickle.load(open("svm_model.sav", 'rb'))
         finally:
-            self.draw_prediction(model, "SVM ( Support Vector Machine )", False)
+            self.draw_prediction(model, "SVM ( Support Vector Machine )", False , start_timer)
 
     def artificial_neural_network(self):
+        start_timer = time.time()
         """ Carrega o modelo da rede neural artificial ( ann ) , caso o modelo não exista, cria durante o tempo de execução.
         """
         model = None
@@ -226,9 +230,9 @@ class App(QMainWindow):
             ann.run_neural_network_model()
             model = tf.keras.models.load_model("neural_network")
         finally:
-            self.draw_prediction(model, "Rede Neural Artificial", True)
+            self.draw_prediction(model, "Rede Neural Artificial", True, start_timer)
 
-    def draw_prediction(self, model, title, is_ann):
+    def draw_prediction(self, model, title, is_ann, start_timer):
         """ Desenha na tela a região de interesse encontrada e logo abaixo a classificação feita pela Rede Neural ou SVM
             :param model: model -> SVM ou ANN
             :param title:  string
@@ -243,6 +247,10 @@ class App(QMainWindow):
 
         if is_ann:
             prediction = np.argmax(prediction, axis=1)
+
+        end_timer = time.time() - start_timer
+
+        title = title + f" - Tempo(sec): {end_timer:.2f}"
 
         # plota uma imagem com os resultados de sua IA
         fig = plt.figure(figsize=(8, 6))
