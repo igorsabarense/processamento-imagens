@@ -66,8 +66,8 @@ def resize_image(img, size=(18, 18)):
     return cv2.resize(mask, size, interpolation_)
 
 
-def interpolate_projection(projection, size=32):
-    """  Retorna a projeção interpolada para o valor escolhido, caso não especificado, o valor default é 32.
+def interpolate_projection(projection, size=16):
+    """  Retorna a projeção interpolada para o valor escolhido, caso não especificado, o valor default é 28.
         :param size: tamanho a ser interpolado
         :param projection : lista
     """
