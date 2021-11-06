@@ -1,4 +1,6 @@
-""" __author__ = "Bruno Rodrigues, Igor Sabarense e Raphael Nogueira"
+""" __subject__ = "Processamento de Imagens"
+    __teacher__ = "Alexei Manso Correa Machado
+    __author__ = "Bruno Rodrigues (553235), Igor Sabarense (553251) e Raphael Nogueira (553218)"
     __date__ = "2021"
 """
 import cv2

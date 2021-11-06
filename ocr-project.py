@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-""" __author__ = "Bruno Rodrigues, Igor Sabarense e Raphael Nogueira"
+""" __subject__ = "Processamento de Imagens"
+    __teacher__ = "Alexei Manso Correa Machado
+    __author__ = "Bruno Rodrigues (553235), Igor Sabarense (553251) e Raphael Nogueira (553218)"
     __date__ = "2021"
 """
 
@@ -276,8 +278,8 @@ class App(QMainWindow):
         """ Processa a imagem e aloca as regiões de interesse a um vetor que será utilizado pelo modelo classificador.
         """
         #    Passos de processamento:
-        #         01- transforma em escala de cinza
-        #         02- calcula a porcentagem de branco no fundo da imagem para fazer a limiarização correta ( inverte o fundo para preto ou não )
+        #         01- calcula a porcentagem de branco no fundo da imagem para fazer a limiarização correta ( inverte o fundo para preto ou não )
+        #         02- transforma em escala de cinza
         #         04- usa o filtro Gaussiano para reduzir o ruído na imagem
         #         05- limiariza utilizando a limiarização binária + algoritmo de OTSU
         #         06- Acha os contornos da imagem (area que não é fundo)
@@ -300,7 +302,7 @@ class App(QMainWindow):
         # fundo preto ou branco
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # transforma em escala de cinza
         blur = cv2.GaussianBlur(gray, (5, 5), 0)  # reduzir ruído
-        thresh = cv2.threshold(blur, 0, 255, white_background)[1]  # limiarização da imagem
+        thresh = cv2.threshold(blur, 0, 255, white_background)[1]  # limiarização da imagem (transforma o fundo em preto e o objeto em branco)
 
         cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
                                 cv2.CHAIN_APPROX_SIMPLE)  # acha os contornos dos digitos na imagem
